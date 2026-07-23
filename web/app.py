@@ -68,6 +68,45 @@ PYTHONANYWHERE_USERNAME = os.environ.get("PYTHONANYWHERE_USERNAME", "")
 PYTHONANYWHERE_DOMAIN = os.environ.get("PYTHONANYWHERE_DOMAIN", "")
 
 
+def _do_pull_and_reload():
+    """Runs in a background thread -- git pull + the PythonAnywhere reload API
+    call together can take longer than the platform's request timeout, which
+    was causing the webhook request itself to be killed (502) before Flask
+    ever got to respond. Firing this in the background lets deploy_hook()
+    answer GitHub immediately instead."""
+    log_path = PROJECT_ROOT / "deploy-hook.log"
+    with open(log_path, "a") as log:
+        pull = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+        )
+        log.write(f"\n--- {datetime_now_iso()} ---\n")
+        log.write(f"git pull: rc={pull.returncode}\n{pull.stdout}\n{pull.stderr}\n")
+        if pull.returncode != 0:
+            return
+
+        if PYTHONANYWHERE_API_TOKEN and PYTHONANYWHERE_USERNAME and PYTHONANYWHERE_DOMAIN:
+            import requests
+            reload_url = (
+                f"https://www.pythonanywhere.com/api/v0/user/"
+                f"{PYTHONANYWHERE_USERNAME}/webapps/{PYTHONANYWHERE_DOMAIN}/reload/"
+            )
+            try:
+                r = requests.post(
+                    reload_url,
+                    headers={"Authorization": f"Token {PYTHONANYWHERE_API_TOKEN}"},
+                    timeout=30,
+                )
+                log.write(f"reload: {r.status_code} {r.text}\n")
+            except Exception as e:
+                log.write(f"reload failed: {e}\n")
+
+
+def datetime_now_iso():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
 @app.route("/deploy-hook", methods=["POST"])
 def deploy_hook():
     if not GITHUB_WEBHOOK_SECRET:
@@ -80,24 +119,9 @@ def deploy_hook():
     if not hmac.compare_digest(signature, expected):
         return "invalid signature", 403
 
-    pull = subprocess.run(
-        ["git", "pull", "origin", "main"],
-        cwd=str(PROJECT_ROOT), capture_output=True, text=True,
-    )
-    if pull.returncode != 0:
-        return f"git pull failed: {pull.stderr}", 500
-
-    if PYTHONANYWHERE_API_TOKEN and PYTHONANYWHERE_USERNAME and PYTHONANYWHERE_DOMAIN:
-        import requests  # imported lazily -- only needed for this one route
-        reload_url = (
-            f"https://www.pythonanywhere.com/api/v0/user/"
-            f"{PYTHONANYWHERE_USERNAME}/webapps/{PYTHONANYWHERE_DOMAIN}/reload/"
-        )
-        r = requests.post(reload_url, headers={"Authorization": f"Token {PYTHONANYWHERE_API_TOKEN}"})
-        if r.status_code != 200:
-            return f"git pull ok, but reload failed: {r.status_code} {r.text}", 500
-
-    return f"deployed: {pull.stdout.strip()}", 200
+    import threading
+    threading.Thread(target=_do_pull_and_reload, daemon=True).start()
+    return "accepted, deploying in background", 202
 
 
 def get_db():
