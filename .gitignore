@@ -1,0 +1,10 @@
+# Data: the database and downloaded PDFs are not source code and change
+# constantly / are large -- kept out of git deliberately. Synced to the
+# deployed site separately (see collector/ for how it's generated).
+data/
+lantern_deploy.zip
+
+__pycache__/
+*.pyc
+
+.claude/
