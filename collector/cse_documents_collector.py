@@ -507,6 +507,13 @@ def main():
     print("Run this script again periodically (e.g. daily) to keep accumulating new filings.")
     conn.close()
 
+    print("\nSyncing database to the live hosted site...")
+    try:
+        from sync_to_pythonanywhere import sync as sync_to_pythonanywhere
+        sync_to_pythonanywhere()
+    except ImportError:
+        print("  [!] sync_to_pythonanywhere.py not found alongside this script -- skipping.")
+
 
 if __name__ == "__main__":
     main()
