@@ -10,8 +10,11 @@ principle as the collector itself.
 Usage:
     python app.py
 """
+import hashlib
+import hmac
 import json
 import os
+import subprocess
 import sqlite3
 import sys
 from pathlib import Path
@@ -19,9 +22,10 @@ from pathlib import Path
 from flask import Flask, Response, g, jsonify, request, send_from_directory
 
 WEB_DIR = Path(__file__).resolve().parent
-DB_PATH = WEB_DIR.parent / "data" / "cse_documents.db"
+PROJECT_ROOT = WEB_DIR.parent
+DB_PATH = PROJECT_ROOT / "data" / "cse_documents.db"
 
-sys.path.insert(0, str(WEB_DIR.parent))
+sys.path.insert(0, str(PROJECT_ROOT))
 from analytics.metrics import fundamental_ratios, valuation_multiples
 from analytics.report_diff import diff_periods
 
@@ -40,12 +44,60 @@ LANTERN_PASSWORD = os.environ.get("LANTERN_PASSWORD", "changeme")
 
 @app.before_request
 def _require_auth():
+    # The GitHub deploy webhook can't send Basic Auth -- it's protected
+    # separately by its own HMAC signature check instead (see deploy_hook()).
+    if request.path == "/deploy-hook":
+        return
     auth = request.authorization
     if not auth or auth.username != LANTERN_USERNAME or auth.password != LANTERN_PASSWORD:
         return Response(
             "Authentication required.", 401,
             {"WWW-Authenticate": 'Basic realm="Lantern"'},
         )
+
+
+# ---------------------------------------------------------------------------
+# GitHub auto-deploy webhook -- on every push to the repo, GitHub POSTs here.
+# We verify the payload really came from GitHub (HMAC signature against a
+# shared secret), pull the latest code, then ask PythonAnywhere's API to
+# reload the web app so the change actually takes effect.
+# ---------------------------------------------------------------------------
+GITHUB_WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
+PYTHONANYWHERE_API_TOKEN = os.environ.get("PYTHONANYWHERE_API_TOKEN", "")
+PYTHONANYWHERE_USERNAME = os.environ.get("PYTHONANYWHERE_USERNAME", "")
+PYTHONANYWHERE_DOMAIN = os.environ.get("PYTHONANYWHERE_DOMAIN", "")
+
+
+@app.route("/deploy-hook", methods=["POST"])
+def deploy_hook():
+    if not GITHUB_WEBHOOK_SECRET:
+        return "webhook not configured", 503
+
+    signature = request.headers.get("X-Hub-Signature-256", "")
+    expected = "sha256=" + hmac.new(
+        GITHUB_WEBHOOK_SECRET.encode(), request.get_data(), hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return "invalid signature", 403
+
+    pull = subprocess.run(
+        ["git", "pull", "origin", "main"],
+        cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+    )
+    if pull.returncode != 0:
+        return f"git pull failed: {pull.stderr}", 500
+
+    if PYTHONANYWHERE_API_TOKEN and PYTHONANYWHERE_USERNAME and PYTHONANYWHERE_DOMAIN:
+        import requests  # imported lazily -- only needed for this one route
+        reload_url = (
+            f"https://www.pythonanywhere.com/api/v0/user/"
+            f"{PYTHONANYWHERE_USERNAME}/webapps/{PYTHONANYWHERE_DOMAIN}/reload/"
+        )
+        r = requests.post(reload_url, headers={"Authorization": f"Token {PYTHONANYWHERE_API_TOKEN}"})
+        if r.status_code != 200:
+            return f"git pull ok, but reload failed: {r.status_code} {r.text}", 500
+
+    return f"deployed: {pull.stdout.strip()}", 200
 
 
 def get_db():
