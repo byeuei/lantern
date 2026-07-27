@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lantern — Documents</title>
+<style>
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --bg:         #F3F6FB;
+    --panel:      #FFFFFF;
+    --panel-line: #DCE3EE;
+    --gold:       #1D4ED8;
+    --gold-dim:   #3B6FEA;
+    --gold-tint:  #1D4ED812;
+    --ink:        #101828;
+    --slate:      #64748B;
+    --good:       #1F7A45;
+    --good-line:  #BFE3CC;
+    --manual:     #6B6480;
+    --manual-line: #DAD5E8;
+    --neg:        #B23A2E;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { max-width: 1280px; margin: 0 auto; padding: 20px 24px 60px; }
+
+  /* ---------- Header ---------- */
+  .masthead {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--panel-line); padding-bottom: 16px; margin-bottom: 18px;
+  }
+  .wordmark {
+    font-family: var(--font-sans); font-weight: 700; font-size: 21px;
+    letter-spacing: 0.01em; color: var(--ink);
+  }
+  .wordmark span { color: var(--gold); }
+  .masthead-sub {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--slate);
+    letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px;
+  }
+
+  /* ---------- Ticker search bar ---------- */
+  .search-row { position: relative; margin-bottom: 20px; max-width: 420px; }
+  .search-input {
+    width: 100%; font-family: var(--font-mono); font-size: 13px;
+    padding: 10px 14px; border: 1px solid var(--panel-line); border-radius: 5px;
+    background: var(--panel); color: var(--ink); outline: none;
+  }
+  .search-input:focus { border-color: var(--gold-dim); }
+  .search-input::placeholder { color: var(--slate); }
+  .search-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 6px;
+    max-height: 320px; overflow-y: auto; box-shadow: 0 8px 24px rgba(20,20,15,0.08);
+    display: none;
+  }
+  .search-results.open { display: block; }
+  .search-result {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 9px 14px; cursor: pointer; border-bottom: 1px solid var(--panel-line);
+  }
+  .search-result:last-child { border-bottom: none; }
+  .search-result:hover, .search-result.highlighted { background: var(--gold-tint); }
+  .search-result-sym { font-family: var(--font-mono); font-size: 12px; color: var(--gold); font-weight: 600; flex-shrink: 0; }
+  .search-result-name { font-size: 12px; color: var(--ink); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .search-result-count { font-family: var(--font-mono); font-size: 10px; color: var(--slate); flex-shrink: 0; }
+  .search-empty { padding: 14px; font-size: 12px; color: var(--slate); text-align: center; }
+
+  /* ---------- Two-pane layout ---------- */
+  .layout-grid {
+    display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start;
+  }
+  @media (max-width: 860px) {
+    .layout-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Left sidebar: Financial Documents panel ---------- */
+  .doc-sidebar {
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 6px;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--panel-line);
+  }
+  .doc-tabs-vertical { display: flex; flex-direction: column; padding: 8px; gap: 2px; border-bottom: 1px solid var(--panel-line); }
+  .doc-tab {
+    font-family: var(--font-mono); font-size: 12px; padding: 8px 10px;
+    color: var(--slate); cursor: pointer; border-radius: 4px; letter-spacing: 0.02em;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .doc-tab:hover { background: var(--gold-tint); color: var(--ink); }
+  .doc-tab.active { color: var(--gold); background: var(--gold-tint); }
+  .doc-tab .count { font-size: 10.5px; color: var(--slate); }
+  .doc-tab.active .count { color: var(--gold); }
+
+  .doc-list { max-height: 640px; overflow-y: auto; padding: 8px; }
+
+  .doc-card {
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 5px;
+    padding: 12px 14px; margin-bottom: 8px; animation: rise 0.3s ease both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(3px);} to { opacity: 1; transform: translateY(0);} }
+  .doc-card-title { font-size: 12.5px; color: var(--ink); line-height: 1.4; margin-bottom: 6px; }
+  .doc-card-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); font-size: 10px; color: var(--slate); margin-bottom: 8px;
+  }
+  .doc-card-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .prov-badge {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px;
+    border-radius: 2px; border: 1px solid;
+  }
+  .prov-badge.automated { color: var(--good); border-color: var(--good-line); background: #F0FAF3; }
+  .prov-badge.manual { color: var(--manual); border-color: var(--manual-line); background: #F7F5FB; }
+  .prov-badge.annual_report { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-tint); }
+  .prov-badge.interim_report { color: #3E5C99; border-color: #B9C7E8; background: #F0F3FB; }
+  .prov-badge.circular, .prov-badge.unclassified { color: var(--manual); border-color: var(--manual-line); background: #F7F5FB; }
+
+  .doc-open {
+    font-family: var(--font-mono); font-size: 11px; color: var(--gold);
+    text-decoration: none; white-space: nowrap;
+  }
+  .doc-open:hover { text-decoration: underline; }
+
+  /* ---------- Main overview panel ---------- */
+  .overview-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .company-card {
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 6px;
+    padding: 22px 24px; position: relative; overflow: hidden;
+  }
+  .company-card::before {
+    content: ""; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--gold);
+  }
+  .company-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .company-name { font-family: var(--font-sans); font-size: 19px; font-weight: 600; }
+  .company-ticker { font-family: var(--font-mono); font-size: 12px; color: var(--slate); margin-top: 3px; }
+
+  .stat-strip {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 18px;
+    padding-top: 18px; border-top: 1px solid var(--panel-line);
+  }
+  .stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--slate); }
+  .stat-value { font-family: var(--font-mono); font-size: 14.5px; margin-top: 4px; color: var(--ink); }
+
+  .feed-note {
+    font-size: 12px; color: var(--slate); background: var(--panel); border: 1px solid var(--panel-line);
+    border-left: 3px solid var(--gold-dim); padding: 12px 16px; border-radius: 4px; line-height: 1.5;
+  }
+  .feed-note code { color: var(--gold); }
+
+  /* ---------- AI Summary + Earnings Comparison ---------- */
+  .summary-card {
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 6px;
+    padding: 20px 22px;
+  }
+  .summary-card-header {
+    font-family: var(--font-sans); font-size: 15px; font-weight: 600; margin-bottom: 4px;
+  }
+  .summary-card-sub {
+    font-family: var(--font-mono); font-size: 10px; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px;
+  }
+  .summary-text { font-size: 13px; line-height: 1.65; color: var(--ink); margin-bottom: 4px; }
+  .gaps-note {
+    font-size: 11.5px; color: var(--slate); margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--panel-line); line-height: 1.5;
+  }
+  .gaps-note b { color: var(--gold); }
+
+  .earnings-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 12px; }
+  .earnings-table th {
+    text-align: right; font-family: var(--font-mono); font-size: 10px; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 10px; border-bottom: 1px solid var(--panel-line);
+  }
+  .earnings-table th:first-child, .earnings-table td:first-child { text-align: left; }
+  .earnings-table td {
+    text-align: right; font-family: var(--font-mono); padding: 7px 10px;
+    border-bottom: 1px solid var(--panel-line); color: var(--ink); white-space: nowrap;
+  }
+  .earnings-table td.neg { color: var(--neg); }
+  .earnings-table .cite {
+    font-family: var(--font-sans); font-size: 10px; color: var(--slate); white-space: normal;
+  }
+  .earnings-table-wrap { overflow-x: auto; }
+
+  .empty-state {
+    text-align: center; padding: 40px 16px; color: var(--slate); font-size: 12.5px;
+    border: 1px dashed var(--panel-line); border-radius: 6px;
+  }
+
+  .footer-note {
+    margin-top: 22px; font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--slate); text-align: center; letter-spacing: 0.03em;
+  }
+
+  /* ---------- Quarterly (QoQ/YoY) card ---------- */
+  .qtr-table td.delta-up { color: var(--good); }
+  .qtr-table td.delta-down { color: var(--neg); }
+  .qtr-table td.delta-flat { color: var(--slate); }
+
+  /* ---------- Compare mode ---------- */
+  .mode-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .mode-btn {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.03em;
+    padding: 7px 14px; border-radius: 5px; border: 1px solid var(--panel-line);
+    background: var(--panel); color: var(--slate); cursor: pointer;
+  }
+  .mode-btn.active { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-tint); }
+
+  .compare-panel {
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 6px;
+    padding: 20px 22px;
+  }
+  .compare-picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .compare-chip {
+    display: flex; align-items: center; gap: 6px; font-family: var(--font-mono);
+    font-size: 11.5px; color: var(--gold); background: var(--gold-tint); border: 1px solid var(--gold-dim);
+    padding: 5px 6px 5px 10px; border-radius: 14px;
+  }
+  .compare-chip button {
+    all: unset; cursor: pointer; color: var(--slate); font-size: 13px; line-height: 1;
+    padding: 0 4px;
+  }
+  .compare-chip button:hover { color: var(--neg); }
+  .compare-add-input {
+    font-family: var(--font-mono); font-size: 12px; padding: 6px 10px;
+    border: 1px solid var(--panel-line); border-radius: 5px; outline: none; min-width: 220px;
+    background: var(--panel); color: var(--ink);
+  }
+  .compare-add-input:focus { border-color: var(--gold-dim); }
+  .compare-add-results {
+    position: relative;
+  }
+  .compare-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; min-width: 260px; z-index: 20;
+    background: var(--panel); border: 1px solid var(--panel-line); border-radius: 6px;
+    max-height: 260px; overflow-y: auto; box-shadow: 0 8px 24px rgba(20,20,15,0.08);
+  }
+  .compare-table-wrap { overflow-x: auto; }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .compare-table th, .compare-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--panel-line); text-align: left; white-space: nowrap;
+  }
+  .compare-table th {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--gold);
+    text-transform: uppercase; letter-spacing: 0.03em; background: var(--gold-tint);
+  }
+  .compare-table td.row-label {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.03em; background: #FAFAF7; position: sticky; left: 0;
+  }
+  .compare-table td.neg { color: var(--neg); }
+  .compare-summary-cell { font-size: 11.5px; line-height: 1.5; max-width: 260px; white-space: normal; }
+
+  /* ---------- Valuation stat strip (wider, 3-up) ---------- */
+  .stat-strip.wide { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 700px) { .stat-strip.wide { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---------- Financial Detail card (sub-tabs over a period x metric table) ---------- */
+  .fd-tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+  .fd-tab {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
+    padding: 6px 12px; border-radius: 4px; color: var(--slate); cursor: pointer;
+    border: 1px solid var(--panel-line);
+  }
+  .fd-tab:hover { background: var(--gold-tint); color: var(--ink); }
+  .fd-tab.active { color: var(--gold); background: var(--gold-tint); border-color: var(--gold-dim); }
+
+  /* ---------- Investment Thesis card ---------- */
+  .thesis-header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+  .thesis-badge {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+    padding: 6px 16px; border-radius: 4px; border: 1px solid; text-transform: uppercase;
+  }
+  .thesis-badge.buy, .thesis-badge.accumulate { color: var(--good); border-color: var(--good-line); background: #F0FAF3; }
+  .thesis-badge.hold { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-tint); }
+  .thesis-badge.reduce, .thesis-badge.sell { color: var(--neg); border-color: #E3B8B0; background: #FBF0EE; }
+  .thesis-badge.unrated { color: var(--slate); border-color: var(--panel-line); background: #FAFAF7; }
+  .thesis-score { font-family: var(--font-mono); font-size: 20px; color: var(--ink); }
+  .thesis-score span { font-size: 12px; color: var(--slate); font-weight: 400; }
+  .thesis-confidence { font-family: var(--font-mono); font-size: 10.5px; color: var(--slate); margin-top: 2px; }
+
+  .pillar-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
+  .pillar-table th {
+    text-align: left; font-family: var(--font-mono); font-size: 10px; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 10px; border-bottom: 1px solid var(--panel-line);
+  }
+  .pillar-table td { padding: 8px 10px; border-bottom: 1px solid var(--panel-line); vertical-align: top; }
+  .pillar-table td.pillar-name { font-weight: 600; white-space: nowrap; }
+  .pillar-table td.pillar-score { font-family: var(--font-mono); text-align: center; white-space: nowrap; }
+  .pillar-table td.pillar-weight { font-family: var(--font-mono); text-align: center; color: var(--slate); white-space: nowrap; }
+  .pillar-table td.pillar-rationale { font-size: 11.5px; line-height: 1.5; color: var(--ink); }
+  .pillar-table tr.unavailable td { color: var(--slate); font-style: italic; }
+
+  .thesis-list { margin: 0 0 14px; padding-left: 18px; font-size: 12.5px; line-height: 1.65; }
+  .thesis-list li { margin-bottom: 3px; }
+  .thesis-section-label {
+    font-family: var(--font-mono); font-size: 10px; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 6px;
+  }
+  .horizon-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 4px; }
+  .horizon-card { background: #FAFAF7; border: 1px solid var(--panel-line); border-radius: 5px; padding: 10px 12px; }
+  .horizon-card .h-label { font-family: var(--font-mono); font-size: 10px; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  .horizon-card .h-text { font-size: 11.5px; line-height: 1.5; color: var(--ink); }
+
+  /* ---------- Latest Interim Update card ---------- */
+  .interim-header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+  .new-badge {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.05em;
+    color: var(--good); border: 1px solid var(--good-line); background: #F0FAF3;
+    padding: 3px 9px; border-radius: 3px; text-transform: uppercase;
+  }
+  .interim-subgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; }
+  @media (max-width: 700px) { .interim-subgrid { grid-template-columns: 1fr; } }
+  .interim-subgrid-label {
+    font-family: var(--font-mono); font-size: 10px; color: var(--gold);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="masthead">
+    <div>
+      <div class="wordmark">Lantern<span>.</span></div>
+      <div class="masthead-sub">CSE Research Platform — Document Registry</div>
+    </div>
+    <div class="masthead-sub">Prototype build — live</div>
+  </div>
+
+  <div class="mode-row">
+    <div class="mode-btn active" id="modeCompanyBtn" data-mode="company">Company</div>
+    <div class="mode-btn" id="modeCompareBtn" data-mode="compare">Compare</div>
+  </div>
+
+  <div class="search-row" id="searchRow">
+    <input class="search-input" id="searchInput" type="text" placeholder="Search company or ticker (e.g. JKH, Tokyo Cement)…" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div class="layout-grid" id="companyView">
+
+    <aside class="doc-sidebar">
+      <div class="sidebar-header">Financial Documents</div>
+      <div class="doc-tabs-vertical" id="docTabs"></div>
+      <div class="doc-list" id="ledger"></div>
+    </aside>
+
+    <main class="overview-panel">
+      <div class="company-card" id="companyCard"></div>
+      <div class="feed-note">
+        Documents captured from CSE's confirmed data feeds. New filings for tickers in your coverage universe accumulate here automatically over time — this is not a full historical archive yet. <code>source_type</code> shown on each item traces whether it arrived via automated collection or manual entry.
+      </div>
+      <div class="summary-card" id="interimUpdateCard"></div>
+      <div class="summary-card" id="thesisCard"></div>
+      <div class="summary-card" id="summaryCard"></div>
+      <div class="summary-card" id="valuationCard"></div>
+      <div class="summary-card" id="financialDetailCard"></div>
+      <div class="summary-card" id="quarterlyCard"></div>
+      <div class="summary-card" id="whatChangedCard"></div>
+    </main>
+
+  </div>
+
+  <div class="compare-panel" id="compareView" style="display:none;">
+    <div class="summary-card-header">Compare Companies</div>
+    <div class="summary-card-sub">Annual earnings, latest quarter, and dividend history side by side — up to 6 tickers</div>
+    <div class="compare-picker" id="comparePicker">
+      <div class="compare-add-results">
+        <input class="compare-add-input" id="compareInput" type="text" placeholder="Add a ticker…" autocomplete="off">
+        <div class="search-results" id="compareResults" style="min-width:260px;"></div>
+      </div>
+    </div>
+    <div id="compareTableHolder"></div>
+  </div>
+
+  <div class="footer-note">Registry snapshot — data captured live from CSE feeds during platform testing</div>
+</div>
+
+<script>
+// Static data, fetched from pre-generated JSON bundles under site_data/ (built
+// from data/cse_documents.db by collector/export_static_site.py). Same shapes
+// the live Flask API used to serve -- only the fetch source changed, so this
+// site works standalone on GitHub Pages with no backend at all.
+let universe = [];   // full ~93-ticker coverage universe (most have 0 documents so far)
+let docs = [];
+let summary = null;
+let activeSymbol = null;
+let activeTab = "ALL";
+let searchHighlight = -1;
+
+const bundleCache = {};
+async function loadBundle(symbol) {
+  if (symbol in bundleCache) return bundleCache[symbol];
+  const res = await fetch("site_data/companies/" + encodeURIComponent(symbol) + ".json");
+  const bundle = res.status === 200 ? await res.json() : null;
+  bundleCache[symbol] = bundle;
+  return bundle;
+}
+
+let currentBundle = null;
+
+async function loadUniverse() {
+  const res = await fetch("site_data/coverage_universe.json");
+  universe = await res.json();
+  // Default to the first ticker that actually has documents, so the page isn't empty on load.
+  const withDocs = universe.find(c => c.doc_count > 0);
+  activeSymbol = (withDocs || universe[0] || {}).symbol || null;
+}
+
+async function loadDocuments(symbol) {
+  const all = (currentBundle && currentBundle.documents) || [];
+  // Scope narrowed to annual + interim reports only for now (disclosures/circulars
+  // and unclassified items are not shown, even if present in the database).
+  docs = all.filter(d => d.doc_type === "ANNUAL_REPORT" || d.doc_type === "INTERIM_REPORT");
+}
+
+async function loadSummary(symbol) {
+  summary = (currentBundle && currentBundle.summary) || null;
+}
+
+let quarterly = [];
+async function loadQuarterly(symbol) {
+  const rows = (currentBundle && currentBundle.financials_interim) || [];
+  // prefer GROUP basis per period, matching _preferred_annual_rows on the backend
+  const byPeriod = {};
+  rows.forEach(r => {
+    const existing = byPeriod[r.period_end_date];
+    if (!existing || (r.basis === "GROUP" && existing.basis !== "GROUP")) byPeriod[r.period_end_date] = r;
+  });
+  quarterly = Object.keys(byPeriod).sort().map(k => byPeriod[k]).map(r => ({
+    period_label: r.period_label, revenue: r.revenue, pat: r.profit_after_tax, eps: r.eps_basic,
+    source_doc_id: r.source_doc_id, source_page: r.income_statement_page || r.balance_sheet_page || r.cashflow_page,
+  }));
+}
+
+let marketData = null;
+async function loadMarketData(symbol) {
+  marketData = (currentBundle && currentBundle.market_data) || null;
+}
+
+let financialsAnnual = [];
+let financialsBasisAvailable = [];
+let financialsBasis = "GROUP";
+async function loadFinancials(symbol) {
+  const rows = (currentBundle && currentBundle.financials_annual) || [];
+  financialsBasisAvailable = [...new Set(rows.map(r => r.basis))];
+  financialsBasis = financialsBasisAvailable.includes("GROUP") ? "GROUP" : (financialsBasisAvailable[0] || "GROUP");
+  financialsAnnual = rows; // both bases; filtered at render time by financialsBasis
+}
+
+// Ratios/report_diff are precomputed for every basis at export time, so
+// switching basis is an instant in-memory lookup, not a fetch.
+let ratiosAnnual = [];
+function applyRatios(basis) {
+  ratiosAnnual = (currentBundle && currentBundle.ratios && currentBundle.ratios[basis]) || [];
+}
+
+let thesis = null;
+async function loadThesis(symbol) {
+  thesis = (currentBundle && currentBundle.thesis) || null;
+}
+
+let reportDiff = [];
+function applyReportDiff(basis) {
+  reportDiff = (currentBundle && currentBundle.report_diff && currentBundle.report_diff[basis]) || [];
+}
+
+let interimUpdates = [];
+async function loadInterimUpdates(symbol) {
+  interimUpdates = (currentBundle && currentBundle.interim_updates) || [];
+}
+
+async function selectSymbol(symbol) {
+  activeSymbol = symbol;
+
+  // Settle the search UI immediately -- close the dropdown and show the pick
+  // in the box -- before touching any of the card-rendering below. That way
+  // a failure in one card's render (bad/unexpected API data, a network hiccup)
+  // can never leave the dropdown hanging open or the search box unchanged;
+  // the search interaction itself always completes on the spot.
+  const input = document.getElementById("searchInput");
+  const c = universe.find(x => x.symbol === symbol);
+  input.value = c ? `${c.symbol} — ${c.company_name}` : symbol;
+  closeSearchResults();
+
+  currentBundle = await loadBundle(activeSymbol);
+  await Promise.all([
+    loadDocuments(activeSymbol), loadSummary(activeSymbol), loadQuarterly(activeSymbol),
+    loadMarketData(activeSymbol), loadFinancials(activeSymbol), loadThesis(activeSymbol),
+    loadInterimUpdates(activeSymbol),
+  ]);
+  applyRatios(financialsBasis);
+  applyReportDiff(financialsBasis);
+  activeTab = "ALL";
+  fdTab = "income";
+  renderCompanyCard();
+  renderTabs();
+  renderLedger();
+  renderInterimUpdate();
+  renderSummary();
+  renderValuation();
+  renderFinancialDetail();
+  renderQuarterly();
+  renderWhatChanged();
+  renderThesis();
+}
+
+function closeSearchResults() {
+  document.getElementById("searchResults").classList.remove("open");
+  searchHighlight = -1;
+}
+
+function renderSearchResults(query) {
+  const box = document.getElementById("searchResults");
+  const q = query.trim().toLowerCase();
+  if (!q) { closeSearchResults(); return; }
+
+  const matches = universe.filter(c =>
+    c.symbol.toLowerCase().includes(q) || c.company_name.toLowerCase().includes(q)
+  ).slice(0, 12);
+
+  box.innerHTML = matches.length === 0
+    ? `<div class="search-empty">No tickers match "${query}" in the coverage universe.</div>`
+    : matches.map(c => `
+        <div class="search-result" data-sym="${c.symbol}">
+          <span class="search-result-sym">${c.symbol}</span>
+          <span class="search-result-name">${c.company_name}</span>
+          <span class="search-result-count">${c.doc_count} doc${c.doc_count === 1 ? '' : 's'}</span>
+        </div>
+      `).join("");
+  // Listeners are delegated once on the container in initSearch() rather than
+  // re-bound per result here -- avoids any chance of a listener attaching to a
+  // node that gets replaced by the next keystroke's re-render before a click
+  // on it is fully processed (the likely cause of "have to click twice").
+  searchHighlight = -1;
+  box.classList.add("open");
+}
+
+function initSearch() {
+  const input = document.getElementById("searchInput");
+  const box = document.getElementById("searchResults");
+
+  input.addEventListener("input", () => renderSearchResults(input.value));
+  input.addEventListener("focus", () => {
+    // Deferred: a mouse click's native caret-placement runs after "focus" fires, so
+    // calling select() synchronously here gets immediately overridden by the click,
+    // putting the cursor wherever the user clicked instead of selecting everything.
+    setTimeout(() => input.select(), 0);
+    const v = input.value.trim();
+    // Value looks like an already-resolved "SYM — Company Name" selection, not a query
+    // the user typed -- searching for it verbatim would always come up empty. Leave the
+    // dropdown closed until they actually type over the (now fully-selected) text.
+    if (v && !v.includes(" — ")) renderSearchResults(v);
+  });
+  input.addEventListener("keydown", (e) => {
+    const items = box.querySelectorAll(".search-result");
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      searchHighlight = Math.min(searchHighlight + 1, items.length - 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      searchHighlight = Math.max(searchHighlight - 1, 0);
+    } else if (e.key === "Enter" && searchHighlight >= 0 && items[searchHighlight]) {
+      selectSymbol(items[searchHighlight].getAttribute("data-sym"));
+      return;
+    } else if (e.key === "Escape") {
+      closeSearchResults();
+      return;
+    } else {
+      return;
+    }
+    items.forEach((el, i) => el.classList.toggle("highlighted", i === searchHighlight));
+  });
+
+  // mousedown only prevents the input from blurring (which is what would let
+  // the document-level "click outside" listener below close the dropdown out
+  // from under the click) -- the actual selection happens on click, same as
+  // any standard button/link, so it always fires on the very first press.
+  let mousedownSym = null;
+  box.addEventListener("mousedown", (e) => {
+    const item = e.target.closest(".search-result");
+    if (!item) return;
+    e.preventDefault();
+    mousedownSym = item.getAttribute("data-sym");
+  });
+  box.addEventListener("click", (e) => {
+    const item = e.target.closest(".search-result");
+    if (!item) return;
+    selectSymbol(item.getAttribute("data-sym") || mousedownSym);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-row")) closeSearchResults();
+  });
+}
+
+function renderCompanyCard() {
+  const card = document.getElementById("companyCard");
+  const c = universe.find(x => x.symbol === activeSymbol);
+  if (!c) {
+    card.innerHTML = `<div class="empty-state">No company selected. Use the search bar above.</div>`;
+    return;
+  }
+  const price = marketData ? marketData.closing_price ?? marketData.price : null;
+  const mcap = marketData ? marketData.market_cap : null;
+  card.innerHTML = `
+    <div class="company-top">
+      <div>
+        <div class="company-name">${c.company_name || c.symbol}</div>
+        <div class="company-ticker">${c.symbol}</div>
+      </div>
+    </div>
+    <div class="stat-strip wide">
+      <div><div class="stat-label">Documents on file</div><div class="stat-value">${c.doc_count}</div></div>
+      <div><div class="stat-label">Last price</div><div class="stat-value">${price !== null && price !== undefined ? "LKR " + fmtNum(price) : "not yet collected"}</div></div>
+      <div><div class="stat-label">Market cap</div><div class="stat-value">${mcap ? "LKR " + fmtCompact(mcap) : "not yet collected"}</div></div>
+    </div>
+    ${marketData ? `<div class="gaps-note">Price/market cap as of ${marketData.as_of}, source: CSE ${marketData.source} feed.</div>` : ""}
+  `;
+}
+
+function fmtCompact(n) {
+  if (n === undefined || n === null) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return (n / 1e9).toFixed(2) + "bn";
+  if (abs >= 1e6) return (n / 1e6).toFixed(2) + "mn";
+  return fmtNum(n);
+}
+
+function fmtPct(n) {
+  if (n === undefined || n === null) return "—";
+  return (n * 100).toFixed(1) + "%";
+}
+
+function renderValuation() {
+  const card = document.getElementById("valuationCard");
+  const v = marketData ? marketData.valuation : null;
+  if (!v) {
+    card.innerHTML = `
+      <div class="summary-card-header">Valuation</div>
+      <div class="summary-card-sub">P/E, P/B, EV/EBITDA, dividend yield — computed from latest financials and live market price</div>
+      <div class="empty-state">No market price or financials on file yet for this company.</div>
+    `;
+    return;
+  }
+  card.innerHTML = `
+    <div class="summary-card-header">Valuation</div>
+    <div class="summary-card-sub">Computed from latest annual financials and market price as of ${marketData.as_of}</div>
+    <div class="stat-strip wide">
+      <div><div class="stat-label">P/E</div><div class="stat-value">${v.pe_ratio !== null && v.pe_ratio !== undefined ? fmtNum(v.pe_ratio) + "x" : "—"}</div></div>
+      <div><div class="stat-label">P/B</div><div class="stat-value">${v.pb_ratio !== null && v.pb_ratio !== undefined ? fmtNum(v.pb_ratio) + "x" : "—"}</div></div>
+      <div><div class="stat-label">EV/EBITDA</div><div class="stat-value">${v.ev_ebitda !== null && v.ev_ebitda !== undefined ? fmtNum(v.ev_ebitda) + "x" : "—"}</div></div>
+      <div><div class="stat-label">Dividend yield</div><div class="stat-value">${v.dividend_yield !== null && v.dividend_yield !== undefined ? fmtPct(v.dividend_yield) : "—"}</div></div>
+      <div><div class="stat-label">Payout ratio</div><div class="stat-value">${v.payout_ratio !== null && v.payout_ratio !== undefined ? fmtPct(v.payout_ratio) : "—"}</div></div>
+      <div><div class="stat-label">Enterprise value</div><div class="stat-value">${v.enterprise_value ? "LKR " + fmtCompact(v.enterprise_value) : "—"}</div></div>
+    </div>
+    ${v._gaps && v._gaps.length ? `<div class="gaps-note"><b>Gaps:</b> ${v._gaps.join("; ")}</div>` : ""}
+  `;
+}
+
+const FD_TABS = [
+  ["income", "Income Statement", [
+    ["revenue", "Revenue"], ["cost_of_sales", "Cost of Sales"], ["gross_profit", "Gross Profit"],
+    ["operating_profit", "Operating Profit"], ["finance_costs", "Finance Costs"], ["finance_income", "Finance Income"],
+    ["profit_before_tax", "Profit Before Tax"], ["tax_expense", "Tax Expense"], ["profit_after_tax", "Profit After Tax"],
+    ["eps_basic", "EPS (Basic)"],
+  ]],
+  ["balance", "Balance Sheet", [
+    ["total_assets", "Total Assets"], ["current_assets", "Current Assets"], ["inventory", "Inventory"],
+    ["trade_receivables", "Trade Receivables"], ["cash_and_equivalents", "Cash & Equivalents"],
+    ["total_liabilities", "Total Liabilities"], ["current_liabilities", "Current Liabilities"],
+    ["trade_payables", "Trade Payables"], ["short_term_borrowings", "Short-Term Borrowings"],
+    ["long_term_borrowings", "Long-Term Borrowings"], ["total_equity", "Total Equity"],
+  ]],
+  ["cashflow", "Cash Flow", [
+    ["cash_from_operations", "Cash From Operations"], ["capex", "Capex"],
+    ["cash_from_investing", "Cash From Investing"], ["cash_from_financing", "Cash From Financing"],
+  ]],
+  ["ratios", "Ratios", [
+    ["gross_margin", "Gross Margin", true], ["operating_margin", "Operating Margin", true], ["net_margin", "Net Margin", true],
+    ["ebitda_margin", "EBITDA Margin", true], ["roe", "ROE", true], ["roa", "ROA", true], ["roic", "ROIC", true],
+    ["current_ratio", "Current Ratio"], ["debt_to_equity", "Debt / Equity"], ["net_debt_to_ebitda", "Net Debt / EBITDA"],
+    ["interest_coverage", "Interest Coverage"], ["free_cash_flow", "Free Cash Flow"],
+  ]],
+];
+let fdTab = "income";
+
+function renderFinancialDetail() {
+  const card = document.getElementById("financialDetailCard");
+  const rowsForBasis = financialsAnnual.filter(r => r.basis === financialsBasis);
+  if (!rowsForBasis.length && !ratiosAnnual.length) {
+    card.innerHTML = `
+      <div class="summary-card-header">Financial Detail</div>
+      <div class="summary-card-sub">Full income statement, balance sheet, cash flow and ratios, cited to source filings</div>
+      <div class="empty-state">No detailed financial statements extracted yet for this company.</div>
+    `;
+    return;
+  }
+  const basisToggle = financialsBasisAvailable.length > 1 ? `
+    <div class="fd-tabs" style="margin-bottom:8px;">
+      ${financialsBasisAvailable.map(b => `<div class="fd-tab ${b === financialsBasis ? 'active' : ''}" data-basis="${b}">${b}</div>`).join("")}
+    </div>
+  ` : "";
+  const [_, __, fields] = FD_TABS.find(t => t[0] === fdTab);
+  const isRatioTab = fdTab === "ratios";
+  const source = isRatioTab ? ratiosAnnual : rowsForBasis;
+  const periods = source.map(r => r.period_label);
+
+  card.innerHTML = `
+    <div class="summary-card-header">Financial Detail</div>
+    <div class="summary-card-sub">Full income statement, balance sheet, cash flow and ratios (${financialsBasis} basis), cited to source filings</div>
+    ${basisToggle}
+    <div class="fd-tabs">
+      ${FD_TABS.map(([key, label]) => `<div class="fd-tab ${fdTab === key ? 'active' : ''}" data-fdtab="${key}">${label}</div>`).join("")}
+    </div>
+    ${periods.length ? `
+      <div class="compare-table-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Metric</th>${periods.map(p => `<th>${p}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${fields.map(([key, label, isPct]) => `
+              <tr>
+                <td class="row-label">${label}</td>
+                ${source.map(r => {
+                  const val = r[key];
+                  const display = val === null || val === undefined ? "—" : (isPct ? fmtPct(val) : fmtNum(val));
+                  const neg = typeof val === "number" && val < 0;
+                  return `<td class="${neg ? 'neg' : ''}">${display}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+      ${!isRatioTab && rowsForBasis.length ? `<div class="gaps-note">Sources: ${rowsForBasis.map(r => `${r.period_label} — ${r.source_doc_id}${fdTab === 'income' ? (r.income_statement_page ? `, p.${r.income_statement_page}` : '') : fdTab === 'balance' ? (r.balance_sheet_page ? `, p.${r.balance_sheet_page}` : '') : (r.cashflow_page ? `, p.${r.cashflow_page}` : '')}`).join(" · ")}${rowsForBasis.some(r => r.notes) ? '<br>' + rowsForBasis.filter(r => r.notes).map(r => `<b>${r.period_label}:</b> ${r.notes}`).join('<br>') : ''}</div>` : ""}
+    ` : `<div class="empty-state">No data for this tab yet.</div>`}
+  `;
+
+  card.querySelectorAll("[data-fdtab]").forEach(el =>
+    el.addEventListener("click", () => { fdTab = el.getAttribute("data-fdtab"); renderFinancialDetail(); })
+  );
+  card.querySelectorAll("[data-basis]").forEach(el =>
+    el.addEventListener("click", () => {
+      financialsBasis = el.getAttribute("data-basis");
+      applyRatios(financialsBasis);
+      applyReportDiff(financialsBasis);
+      renderFinancialDetail();
+      renderWhatChanged();
+    })
+  );
+}
+
+function renderWhatChanged() {
+  const card = document.getElementById("whatChangedCard");
+  if (!reportDiff.length) {
+    card.innerHTML = `
+      <div class="summary-card-header">What Changed</div>
+      <div class="summary-card-sub">Most significant changes vs the prior period on file</div>
+      <div class="empty-state">Need at least 2 periods of financial statements on file to compute changes.</div>
+    `;
+    return;
+  }
+  card.innerHTML = `
+    <div class="summary-card-header">What Changed</div>
+    <div class="summary-card-sub">${reportDiff[0].prior_period_label} → ${reportDiff[0].new_period_label} (${financialsBasis} basis), ranked by magnitude</div>
+    <div class="earnings-table-wrap">
+      <table class="earnings-table">
+        <thead><tr><th>Metric</th><th>Prior</th><th>New</th><th>Change</th></tr></thead>
+        <tbody>
+          ${reportDiff.map(d => `
+            <tr>
+              <td>${d.label}</td>
+              <td>${fmtNum(d.prior_value)}</td>
+              <td class="${d.new_value < 0 ? 'neg' : ''}">${fmtNum(d.new_value)}</td>
+              <td class="${d.direction === 'deteriorated' ? 'neg' : ''}">${d.pct_change !== null ? (d.pct_change >= 0 ? '+' : '') + fmtPct(d.pct_change) : d.direction.replace('_', ' ')}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderMiniDiffTable(rows) {
+  if (!rows || !rows.length) return `<div class="empty-state">Not available.</div>`;
+  return `
+    <div class="earnings-table-wrap">
+      <table class="earnings-table">
+        <thead><tr><th>Metric</th><th>Prior</th><th>New</th><th>Change</th></tr></thead>
+        <tbody>
+          ${rows.slice(0, 8).map(d => `
+            <tr>
+              <td>${d.label}</td>
+              <td>${fmtNum(d.prior_value)}</td>
+              <td class="${d.new_value < 0 ? 'neg' : ''}">${fmtNum(d.new_value)}</td>
+              <td class="${d.direction === 'deteriorated' ? 'neg' : ''}">${d.pct_change !== null ? (d.pct_change >= 0 ? '+' : '') + fmtPct(d.pct_change) : d.direction.replace('_', ' ')}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderInterimUpdate() {
+  const card = document.getElementById("interimUpdateCard");
+  if (!interimUpdates.length) {
+    card.style.display = "none";
+    card.innerHTML = "";
+    return;
+  }
+  card.style.display = "";
+  const latest = interimUpdates[0];
+  card.innerHTML = `
+    <div class="interim-header-row">
+      <div class="summary-card-header" style="margin-bottom:0;">Latest Interim Result</div>
+      <span class="new-badge">New</span>
+    </div>
+    <div class="summary-card-sub">${latest.period_label} — generated ${new Date(latest.generated_at).toLocaleDateString()}, citing ${latest.source_doc_id}${latest.source_page ? `, p.${latest.source_page}` : ""}</div>
+    <div class="summary-text">${latest.note_text}</div>
+    <div class="interim-subgrid">
+      <div>
+        <div class="interim-subgrid-label">QoQ — vs immediately preceding quarter</div>
+        ${renderMiniDiffTable(latest.qoq)}
+      </div>
+      <div>
+        <div class="interim-subgrid-label">YoY — vs same quarter last year</div>
+        ${renderMiniDiffTable(latest.yoy)}
+      </div>
+    </div>
+    ${latest.gaps_note ? `<div class="gaps-note"><b>Gaps/limitations:</b> ${latest.gaps_note}</div>` : ""}
+  `;
+}
+
+function renderThesis() {
+  const card = document.getElementById("thesisCard");
+  if (!thesis) {
+    card.innerHTML = `
+      <div class="summary-card-header">Investment Thesis</div>
+      <div class="summary-card-sub">Weighted Buy/Accumulate/Hold/Reduce/Sell rating, generated by Claude, citing source documents</div>
+      <div class="empty-state">No investment thesis generated yet for this company.</div>
+    `;
+    return;
+  }
+  const tier = (thesis.recommendation || "unrated").toLowerCase();
+  const pillarLabels = {
+    financial_quality: "Financial Quality", growth_outlook: "Growth Outlook", valuation: "Valuation",
+    business_quality: "Business Quality", macro_industry: "Macro & Industry", governance_risk: "Governance & Risk",
+  };
+  const pillarRows = Object.keys(pillarLabels).map(key => {
+    const p = thesis.pillar_scores[key] || {};
+    const unavailable = p.score === null || p.score === undefined;
+    return `
+      <tr class="${unavailable ? 'unavailable' : ''}">
+        <td class="pillar-name">${pillarLabels[key]}</td>
+        <td class="pillar-score">${unavailable ? "n/a" : fmtNum(p.score) + "/10"}</td>
+        <td class="pillar-weight">${p.weight_used ? fmtPct(p.weight_used) : "—"}</td>
+        <td class="pillar-rationale">${unavailable ? "Not available — no macro/industry data source in this project." : p.rationale}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const horizonHtml = thesis.horizon_notes && Object.keys(thesis.horizon_notes).length ? `
+    <div class="thesis-section-label">Investment Horizon</div>
+    <div class="horizon-grid">
+      ${["6m", "1y", "3y", "5y"].filter(h => thesis.horizon_notes[h]).map(h => `
+        <div class="horizon-card">
+          <div class="h-label">${({"6m": "6 Months", "1y": "1 Year", "3y": "3 Years", "5y": "5 Years"})[h]}</div>
+          <div class="h-text">${thesis.horizon_notes[h]}</div>
+        </div>
+      `).join("")}
+    </div>
+  ` : "";
+
+  card.innerHTML = `
+    <div class="thesis-header-row">
+      <div class="summary-card-header" style="margin-bottom:0;">Investment Thesis</div>
+      <div class="thesis-badge ${tier}">${thesis.recommendation}</div>
+    </div>
+    <div class="summary-card-sub">Generated by Claude, citing source documents — ${new Date(thesis.generated_at).toLocaleDateString()}</div>
+    ${thesis.composite_score !== null && thesis.composite_score !== undefined ? `
+      <div style="margin-bottom:14px;">
+        <span class="thesis-score">${fmtNum(thesis.composite_score)}<span>/100 composite score</span></span>
+        <div class="thesis-confidence">Confidence: ${fmtNum(thesis.confidence)}%</div>
+      </div>
+    ` : ""}
+    <div class="summary-text">${thesis.thesis_text || ""}</div>
+    <table class="pillar-table">
+      <thead><tr><th>Pillar</th><th>Score</th><th>Weight</th><th>Rationale</th></tr></thead>
+      <tbody>${pillarRows}</tbody>
+    </table>
+    ${thesis.key_reasons && thesis.key_reasons.length ? `
+      <div class="thesis-section-label">Top Reasons</div>
+      <ul class="thesis-list">${thesis.key_reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+    ` : ""}
+    ${thesis.watch_factors && thesis.watch_factors.length ? `
+      <div class="thesis-section-label">What Could Change This View</div>
+      <ul class="thesis-list">${thesis.watch_factors.map(r => `<li>${r}</li>`).join("")}</ul>
+    ` : ""}
+    ${horizonHtml}
+    ${thesis.gaps_note ? `<div class="gaps-note"><b>Gaps/limitations:</b> ${thesis.gaps_note}</div>` : ""}
+  `;
+}
+
+function countByType(type) {
+  if (type === "ALL") return docs.length;
+  return docs.filter(d => d.doc_type === type).length;
+}
+
+function renderTabs() {
+  const tabs = [
+    ["ALL", "All"],
+    ["ANNUAL_REPORT", "Annual"],
+    ["INTERIM_REPORT", "Interim"],
+  ];
+  document.getElementById("docTabs").innerHTML = tabs.map(([key, label]) =>
+    `<div class="doc-tab ${activeTab === key ? 'active' : ''}" data-tab="${key}"><span>${label}</span><span class="count">${countByType(key)}</span></div>`
+  ).join("");
+  document.querySelectorAll(".doc-tab").forEach(t => t.addEventListener("click", () => {
+    activeTab = t.getAttribute("data-tab");
+    renderLedger();
+    document.querySelectorAll(".doc-tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+  }));
+}
+
+function renderLedger() {
+  const ledger = document.getElementById("ledger");
+  let rows = docs;
+  if (activeTab !== "ALL") rows = rows.filter(d => d.doc_type === activeTab);
+
+  if (rows.length === 0) {
+    ledger.innerHTML = `<div class="empty-state">No documents in this category yet. New filings will appear here as the collector runs.</div>`;
+    return;
+  }
+
+  ledger.innerHTML = rows.map(d => {
+    const typeBadge = d.doc_type.toLowerCase();
+    const provBadge = (d.source_type || "automated").toLowerCase();
+    return `
+      <div class="doc-card">
+        <div class="doc-card-title">${d.source_category || d.doc_type}</div>
+        <div class="doc-card-meta">
+          <span>${d.uploaded_date}</span>
+        </div>
+        <div class="doc-card-footer">
+          <span class="prov-badge ${typeBadge}">${d.doc_type.replace('_', ' ')}</span>
+          <span class="prov-badge ${provBadge}">${provBadge}</span>
+          <a class="doc-open" href="${d.source_path}" target="_blank" rel="noopener">Open PDF ↗</a>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function fmtNum(n) {
+  if (n === undefined || n === null) return "—";
+  return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function renderSummary() {
+  const card = document.getElementById("summaryCard");
+  if (!summary) {
+    card.innerHTML = `
+      <div class="summary-card-header">AI Summary &amp; Earnings Comparison</div>
+      <div class="summary-card-sub">Generated by Claude, citing source documents</div>
+      <div class="empty-state">No AI summary generated yet for this company.</div>
+    `;
+    return;
+  }
+
+  const rows = summary.earnings_comparison || [];
+  // Collect whichever financial columns actually appear across rows (they differ by company/sector).
+  const cols = [];
+  ["revenue", "operating_income", "pbt", "pat", "eps"].forEach(k => {
+    if (rows.some(r => r[k] !== undefined)) cols.push(k);
+  });
+  const colLabels = { revenue: "Revenue", operating_income: "Op. Income", pbt: "PBT", pat: "PAT", eps: "EPS" };
+
+  const tableHtml = rows.length ? `
+    <div class="earnings-table-wrap">
+      <table class="earnings-table">
+        <thead><tr>
+          <th>Period</th>
+          ${cols.map(c => `<th>${colLabels[c]}</th>`).join("")}
+          <th>Source</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.period}${r.currency ? ` <span class="cite">(${r.currency})</span>` : ""}</td>
+              ${cols.map(c => `<td class="${r[c] < 0 ? 'neg' : ''}">${fmtNum(r[c])}</td>`).join("")}
+              <td class="cite">${r.source_doc_id || "—"}${r.source_page ? `, p.${r.source_page}` : ""}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  ` : `<div class="empty-state">No earnings data in this summary.</div>`;
+
+  card.innerHTML = `
+    <div class="summary-card-header">AI Summary &amp; Earnings Comparison</div>
+    <div class="summary-card-sub">Generated by Claude, citing source documents — generated ${new Date(summary.generated_at).toLocaleDateString()}</div>
+    <div class="summary-text">${summary.summary_text}</div>
+    ${tableHtml}
+    ${summary.gaps_note ? `<div class="gaps-note"><b>Gaps/limitations:</b> ${summary.gaps_note}</div>` : ""}
+  `;
+}
+
+function fmtDelta(curr, prev) {
+  if (curr === null || curr === undefined || prev === null || prev === undefined || prev === 0) return "";
+  const pct = ((curr - prev) / Math.abs(prev)) * 100;
+  const cls = pct > 0.05 ? "delta-up" : pct < -0.05 ? "delta-down" : "delta-flat";
+  const sign = pct > 0 ? "+" : "";
+  return `<span class="${cls}">${sign}${pct.toFixed(1)}%</span>`;
+}
+
+function renderQuarterly() {
+  const card = document.getElementById("quarterlyCard");
+  if (!quarterly.length) {
+    card.innerHTML = `
+      <div class="summary-card-header">Quarterly Performance (QoQ)</div>
+      <div class="summary-card-sub">Revenue, PAT and EPS by quarter, cited to source interim filings</div>
+      <div class="empty-state">No quarterly figures extracted yet for this company. Ask about this company's recent quarter and it will be added here.</div>
+    `;
+    return;
+  }
+  const rows = quarterly; // already sorted by period_end_date ascending
+  card.innerHTML = `
+    <div class="summary-card-header">Quarterly Performance (QoQ)</div>
+    <div class="summary-card-sub">Revenue, PAT and EPS by quarter — % change is vs the immediately preceding quarter on file</div>
+    <div class="earnings-table-wrap">
+      <table class="earnings-table qtr-table">
+        <thead><tr>
+          <th>Quarter</th><th>Revenue</th><th>QoQ</th><th>PAT</th><th>QoQ</th><th>EPS</th><th>Source</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r, i) => {
+            const prev = i > 0 ? rows[i - 1] : null;
+            return `
+              <tr>
+                <td>${r.period_label}</td>
+                <td class="${r.revenue < 0 ? 'neg' : ''}">${fmtNum(r.revenue)}</td>
+                <td>${prev ? fmtDelta(r.revenue, prev.revenue) : "—"}</td>
+                <td class="${r.pat < 0 ? 'neg' : ''}">${fmtNum(r.pat)}</td>
+                <td>${prev ? fmtDelta(r.pat, prev.pat) : "—"}</td>
+                <td>${fmtNum(r.eps)}</td>
+                <td class="cite">${r.source_doc_id || "—"}${r.source_page ? `, p.${r.source_page}` : ""}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+    ${rows.length === 1 ? `<div class="gaps-note">Only one quarter on file so far — QoQ trend will appear once a second quarter is captured.</div>` : ""}
+  `;
+}
+
+/* ---------- Compare mode ---------- */
+let compareSymbols = [];
+let compareData = [];
+
+function setMode(mode) {
+  document.getElementById("modeCompanyBtn").classList.toggle("active", mode === "company");
+  document.getElementById("modeCompareBtn").classList.toggle("active", mode === "compare");
+  document.getElementById("searchRow").style.display = mode === "company" ? "" : "none";
+  document.getElementById("companyView").style.display = mode === "company" ? "" : "none";
+  document.getElementById("compareView").style.display = mode === "compare" ? "" : "none";
+  if (mode === "compare" && compareSymbols.length === 0 && activeSymbol) {
+    addCompareSymbol(activeSymbol);
+  }
+}
+
+function renderComparePicker() {
+  const picker = document.getElementById("comparePicker");
+  const chips = compareSymbols.map(sym => {
+    const c = universe.find(x => x.symbol === sym);
+    return `<div class="compare-chip">${sym}${c ? ` — ${c.company_name}` : ""}<button data-remove="${sym}">×</button></div>`;
+  }).join("");
+  const inputHtml = `
+    <div class="compare-add-results">
+      <input class="compare-add-input" id="compareInput" type="text" placeholder="Add a ticker…" autocomplete="off">
+      <div class="search-results" id="compareResults" style="min-width:260px;"></div>
+    </div>
+  `;
+  picker.innerHTML = chips + (compareSymbols.length < 6 ? inputHtml : "");
+  picker.querySelectorAll("[data-remove]").forEach(btn =>
+    btn.addEventListener("click", () => removeCompareSymbol(btn.getAttribute("data-remove")))
+  );
+  const input = document.getElementById("compareInput");
+  if (input) {
+    input.addEventListener("input", () => renderCompareDropdown(input.value));
+    input.addEventListener("focus", () => { if (input.value.trim()) renderCompareDropdown(input.value); });
+  }
+}
+
+// Bound once on #comparePicker (a stable ancestor that survives re-renders --
+// unlike #compareResults/#compareInput themselves, which get torn down and
+// recreated every time a ticker is added/removed) so selection always fires
+// on the first click, not just after the container happens to still exist.
+// Also handles "click outside closes the dropdown", replacing the old
+// document-level listener that stacked a duplicate on every render.
+document.getElementById("comparePicker").addEventListener("mousedown", (e) => {
+  const item = e.target.closest(".search-result");
+  if (!item) return;
+  e.preventDefault();
+  addCompareSymbol(item.getAttribute("data-sym"));
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".compare-add-results")) {
+    const box = document.getElementById("compareResults");
+    if (box) box.classList.remove("open");
+  }
+});
+
+function renderCompareDropdown(query) {
+  const box = document.getElementById("compareResults");
+  if (!box) return;
+  const q = query.trim().toLowerCase();
+  if (!q) { box.classList.remove("open"); return; }
+  const matches = universe.filter(c =>
+    !compareSymbols.includes(c.symbol) &&
+    (c.symbol.toLowerCase().includes(q) || c.company_name.toLowerCase().includes(q))
+  ).slice(0, 10);
+  box.innerHTML = matches.length ? matches.map(c => `
+    <div class="search-result" data-sym="${c.symbol}">
+      <span class="search-result-sym">${c.symbol}</span>
+      <span class="search-result-name">${c.company_name}</span>
+      <span class="search-result-count">${c.doc_count} doc${c.doc_count === 1 ? '' : 's'}</span>
+    </div>
+  `).join("") : `<div class="search-empty">No matching tickers.</div>`;
+  box.classList.add("open");
+}
+
+async function addCompareSymbol(symbol) {
+  if (compareSymbols.includes(symbol) || compareSymbols.length >= 6) return;
+  compareSymbols.push(symbol);
+  renderComparePicker();
+  await loadCompareData();
+  renderCompareTable();
+}
+
+async function removeCompareSymbol(symbol) {
+  compareSymbols = compareSymbols.filter(s => s !== symbol);
+  renderComparePicker();
+  await loadCompareData();
+  renderCompareTable();
+}
+
+async function loadCompareData() {
+  if (!compareSymbols.length) { compareData = []; return; }
+  const bundles = await Promise.all(compareSymbols.map(s => loadBundle(s)));
+  compareData = bundles.filter(b => b).map(b => b.compare_snapshot);
+}
+
+function renderCompareTable() {
+  const holder = document.getElementById("compareTableHolder");
+  if (!compareData.length) {
+    holder.innerHTML = `<div class="empty-state">Add tickers above to compare them side by side.</div>`;
+    return;
+  }
+
+  // Union of all fiscal years across companies' annual earnings, most recent first.
+  const yearSet = new Set();
+  compareData.forEach(c => (c.annual || []).forEach(r => yearSet.add(r.period)));
+  const years = Array.from(yearSet).sort().reverse();
+
+  const latestQtr = c => (c.quarterly && c.quarterly.length) ? c.quarterly[c.quarterly.length - 1] : null;
+  const annualFor = (c, period) => (c.annual || []).find(r => r.period === period);
+
+  holder.innerHTML = `
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            ${compareData.map(c => `<th>${c.symbol}<br><span style="font-weight:400;text-transform:none;color:var(--slate)">${c.company_name || ""}</span></th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Recommendation</td>
+            ${compareData.map(c => { const t = c.thesis; return `<td>${t ? `<span class="thesis-badge ${(t.recommendation || '').toLowerCase()}" style="font-size:10.5px;padding:3px 8px;">${t.recommendation}</span>` : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">Composite score</td>
+            ${compareData.map(c => { const t = c.thesis; return `<td>${t && t.composite_score !== null && t.composite_score !== undefined ? fmtNum(t.composite_score) + "/100" : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">Last price</td>
+            ${compareData.map(c => { const m = c.market_data; return `<td>${m ? "LKR " + fmtNum(m.closing_price ?? m.price) : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">P/E</td>
+            ${compareData.map(c => { const v = c.valuation; return `<td>${v && v.pe_ratio !== null && v.pe_ratio !== undefined ? fmtNum(v.pe_ratio) + "x" : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">P/B</td>
+            ${compareData.map(c => { const v = c.valuation; return `<td>${v && v.pb_ratio !== null && v.pb_ratio !== undefined ? fmtNum(v.pb_ratio) + "x" : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">Dividend yield</td>
+            ${compareData.map(c => { const v = c.valuation; return `<td>${v && v.dividend_yield !== null && v.dividend_yield !== undefined ? fmtPct(v.dividend_yield) : "—"}</td>`; }).join("")}
+          </tr>
+          ${years.map(y => `
+            <tr>
+              <td class="row-label">${y} Revenue</td>
+              ${compareData.map(c => { const r = annualFor(c, y); return `<td class="${r && r.revenue < 0 ? 'neg' : ''}">${r ? fmtNum(r.revenue) : "—"}</td>`; }).join("")}
+            </tr>
+            <tr>
+              <td class="row-label">${y} PAT</td>
+              ${compareData.map(c => { const r = annualFor(c, y); const hasPat = r && r.pat !== undefined && r.pat !== null; return `<td class="${hasPat && r.pat < 0 ? 'neg' : ''}">${hasPat ? fmtNum(r.pat) : "—"}</td>`; }).join("")}
+            </tr>
+            <tr>
+              <td class="row-label">${y} EPS</td>
+              ${compareData.map(c => { const r = annualFor(c, y); return `<td>${r && r.eps !== undefined ? fmtNum(r.eps) : "—"}</td>`; }).join("")}
+            </tr>
+          `).join("")}
+          <tr>
+            <td class="row-label">Latest quarter</td>
+            ${compareData.map(c => { const q = latestQtr(c); return `<td>${q ? q.period : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">Latest quarter revenue</td>
+            ${compareData.map(c => { const q = latestQtr(c); return `<td>${q ? fmtNum(q.revenue) : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">Latest quarter PAT</td>
+            ${compareData.map(c => { const q = latestQtr(c); return `<td class="${q && q.pat < 0 ? 'neg' : ''}">${q ? fmtNum(q.pat) : "—"}</td>`; }).join("")}
+          </tr>
+          <tr>
+            <td class="row-label">AI Summary</td>
+            ${compareData.map(c => `<td class="compare-summary-cell">${c.summary_text ? c.summary_text.slice(0, 220) + (c.summary_text.length > 220 ? "…" : "") : `<span style="color:var(--slate);font-style:italic">No summary yet</span>`}</td>`).join("")}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function renderAll() {
+  initSearch();
+  await loadUniverse();
+  if (activeSymbol) {
+    currentBundle = await loadBundle(activeSymbol);
+    await Promise.all([
+      loadDocuments(activeSymbol), loadSummary(activeSymbol), loadQuarterly(activeSymbol),
+      loadMarketData(activeSymbol), loadFinancials(activeSymbol), loadThesis(activeSymbol),
+      loadInterimUpdates(activeSymbol),
+    ]);
+    applyRatios(financialsBasis);
+    applyReportDiff(financialsBasis);
+  }
+  const c = universe.find(x => x.symbol === activeSymbol);
+  if (c) document.getElementById("searchInput").value = `${c.symbol} — ${c.company_name}`;
+  renderCompanyCard();
+  renderTabs();
+  renderLedger();
+  renderInterimUpdate();
+  renderSummary();
+  renderValuation();
+  renderFinancialDetail();
+  renderQuarterly();
+  renderWhatChanged();
+  renderThesis();
+  renderComparePicker();
+
+  document.getElementById("modeCompanyBtn").addEventListener("click", () => setMode("company"));
+  document.getElementById("modeCompareBtn").addEventListener("click", () => setMode("compare"));
+}
+
+renderAll();
+</script>
+</body>
+</html>
