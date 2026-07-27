@@ -479,6 +479,17 @@ async function loadInterimUpdates(symbol) {
 
 async function selectSymbol(symbol) {
   activeSymbol = symbol;
+
+  // Settle the search UI immediately -- close the dropdown and show the pick
+  // in the box -- before touching any of the card-rendering below. That way
+  // a failure in one card's render (bad/unexpected API data, a network hiccup)
+  // can never leave the dropdown hanging open or the search box unchanged;
+  // the search interaction itself always completes on the spot.
+  const input = document.getElementById("searchInput");
+  const c = universe.find(x => x.symbol === symbol);
+  input.value = c ? `${c.symbol} — ${c.company_name}` : symbol;
+  closeSearchResults();
+
   await Promise.all([
     loadDocuments(activeSymbol), loadSummary(activeSymbol), loadQuarterly(activeSymbol),
     loadMarketData(activeSymbol), loadFinancials(activeSymbol), loadThesis(activeSymbol),
@@ -497,10 +508,6 @@ async function selectSymbol(symbol) {
   renderQuarterly();
   renderWhatChanged();
   renderThesis();
-  const input = document.getElementById("searchInput");
-  const c = universe.find(x => x.symbol === symbol);
-  input.value = c ? `${c.symbol} — ${c.company_name}` : symbol;
-  closeSearchResults();
 }
 
 function closeSearchResults() {
@@ -517,28 +524,27 @@ function renderSearchResults(query) {
     c.symbol.toLowerCase().includes(q) || c.company_name.toLowerCase().includes(q)
   ).slice(0, 12);
 
-  if (matches.length === 0) {
-    box.innerHTML = `<div class="search-empty">No tickers match "${query}" in the coverage universe.</div>`;
-  } else {
-    box.innerHTML = matches.map(c => `
-      <div class="search-result" data-sym="${c.symbol}">
-        <span class="search-result-sym">${c.symbol}</span>
-        <span class="search-result-name">${c.company_name}</span>
-        <span class="search-result-count">${c.doc_count} doc${c.doc_count === 1 ? '' : 's'}</span>
-      </div>
-    `).join("");
-    // mousedown (not click) so the selection commits before the input's blur /
-    // the document-level "click outside" handler can close the dropdown out from under it.
-    box.querySelectorAll(".search-result").forEach(el =>
-      el.addEventListener("mousedown", (e) => { e.preventDefault(); selectSymbol(el.getAttribute("data-sym")); })
-    );
-  }
+  box.innerHTML = matches.length === 0
+    ? `<div class="search-empty">No tickers match "${query}" in the coverage universe.</div>`
+    : matches.map(c => `
+        <div class="search-result" data-sym="${c.symbol}">
+          <span class="search-result-sym">${c.symbol}</span>
+          <span class="search-result-name">${c.company_name}</span>
+          <span class="search-result-count">${c.doc_count} doc${c.doc_count === 1 ? '' : 's'}</span>
+        </div>
+      `).join("");
+  // Listeners are delegated once on the container in initSearch() rather than
+  // re-bound per result here -- avoids any chance of a listener attaching to a
+  // node that gets replaced by the next keystroke's re-render before a click
+  // on it is fully processed (the likely cause of "have to click twice").
   searchHighlight = -1;
   box.classList.add("open");
 }
 
 function initSearch() {
   const input = document.getElementById("searchInput");
+  const box = document.getElementById("searchResults");
+
   input.addEventListener("input", () => renderSearchResults(input.value));
   input.addEventListener("focus", () => {
     // Deferred: a mouse click's native caret-placement runs after "focus" fires, so
@@ -552,7 +558,6 @@ function initSearch() {
     if (v && !v.includes(" — ")) renderSearchResults(v);
   });
   input.addEventListener("keydown", (e) => {
-    const box = document.getElementById("searchResults");
     const items = box.querySelectorAll(".search-result");
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -571,6 +576,24 @@ function initSearch() {
     }
     items.forEach((el, i) => el.classList.toggle("highlighted", i === searchHighlight));
   });
+
+  // mousedown only prevents the input from blurring (which is what would let
+  // the document-level "click outside" listener below close the dropdown out
+  // from under the click) -- the actual selection happens on click, same as
+  // any standard button/link, so it always fires on the very first press.
+  let mousedownSym = null;
+  box.addEventListener("mousedown", (e) => {
+    const item = e.target.closest(".search-result");
+    if (!item) return;
+    e.preventDefault();
+    mousedownSym = item.getAttribute("data-sym");
+  });
+  box.addEventListener("click", (e) => {
+    const item = e.target.closest(".search-result");
+    if (!item) return;
+    selectSymbol(item.getAttribute("data-sym") || mousedownSym);
+  });
+
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".search-row")) closeSearchResults();
   });
@@ -1075,9 +1098,18 @@ function renderComparePicker() {
   }
 }
 
-// Bound once (not per-render, unlike the input listeners above which live on an
-// element that's recreated every render) -- otherwise every add/remove of a compare
-// ticker stacks another document-level listener.
+// Bound once on #comparePicker (a stable ancestor that survives re-renders --
+// unlike #compareResults/#compareInput themselves, which get torn down and
+// recreated every time a ticker is added/removed) so selection always fires
+// on the first click, not just after the container happens to still exist.
+// Also handles "click outside closes the dropdown", replacing the old
+// document-level listener that stacked a duplicate on every render.
+document.getElementById("comparePicker").addEventListener("mousedown", (e) => {
+  const item = e.target.closest(".search-result");
+  if (!item) return;
+  e.preventDefault();
+  addCompareSymbol(item.getAttribute("data-sym"));
+});
 document.addEventListener("click", (e) => {
   if (!e.target.closest(".compare-add-results")) {
     const box = document.getElementById("compareResults");
@@ -1101,9 +1133,6 @@ function renderCompareDropdown(query) {
       <span class="search-result-count">${c.doc_count} doc${c.doc_count === 1 ? '' : 's'}</span>
     </div>
   `).join("") : `<div class="search-empty">No matching tickers.</div>`;
-  box.querySelectorAll(".search-result").forEach(el =>
-    el.addEventListener("mousedown", (e) => { e.preventDefault(); addCompareSymbol(el.getAttribute("data-sym")); })
-  );
   box.classList.add("open");
 }
 
