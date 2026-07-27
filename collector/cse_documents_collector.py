@@ -507,12 +507,12 @@ def main():
     print("Run this script again periodically (e.g. daily) to keep accumulating new filings.")
     conn.close()
 
-    print("\nSyncing database to the live hosted site...")
+    print("\nPublishing the static site (docs/site_data/) to GitHub Pages...")
     try:
-        from sync_to_pythonanywhere import sync as sync_to_pythonanywhere
-        sync_to_pythonanywhere()
+        from publish_static_site import publish as publish_static_site
+        publish_static_site()
     except ImportError:
-        print("  [!] sync_to_pythonanywhere.py not found alongside this script -- skipping.")
+        print("  [!] publish_static_site.py not found alongside this script -- skipping.")
 
 
 if __name__ == "__main__":
