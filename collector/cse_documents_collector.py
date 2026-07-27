@@ -219,6 +219,26 @@ def init_db():
           ON m.symbol = latest.symbol AND m.as_of = latest.as_of
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS shareholder_info (
+            symbol                     TEXT NOT NULL,
+            as_of_date                 TEXT NOT NULL,   -- "As at" date from the filing, YYYY-MM-DD
+            shares_in_issue            REAL,             -- ordinary shares
+            preference_shares_in_issue REAL,
+            public_holding_pct         REAL,
+            public_shareholders_count  INTEGER,
+            top_shareholders_json      TEXT,              -- [{rank, name, shares, pct}]
+            source_doc_id              TEXT NOT NULL,
+            source_page                INTEGER,
+            PRIMARY KEY (symbol, as_of_date)
+        )
+    """)
+    conn.execute("""
+        CREATE VIEW IF NOT EXISTS shareholder_info_latest AS
+        SELECT s.* FROM shareholder_info s
+        JOIN (SELECT symbol, MAX(as_of_date) AS as_of_date FROM shareholder_info GROUP BY symbol) latest
+          ON s.symbol = latest.symbol AND s.as_of_date = latest.as_of_date
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS thesis (
             symbol                     TEXT PRIMARY KEY,
             company_name               TEXT,
@@ -246,6 +266,9 @@ def init_db():
             period_end_date  TEXT NOT NULL,
             generated_at     TEXT NOT NULL,
             note_text        TEXT NOT NULL,    -- what drove the result + other notable details, cited
+            operational_highlights_json TEXT,  -- ["short bullet", ...]
+            key_drivers_json TEXT,              -- ["short bullet", ...]
+            takeaway         TEXT,               -- one-line summary
             qoq_json         TEXT,              -- [{metric,label,prior_period,prior_value,new_period,new_value,pct_change}]
             yoy_json         TEXT,               -- same shape, vs the same quarter a year earlier
             source_doc_id    TEXT NOT NULL,

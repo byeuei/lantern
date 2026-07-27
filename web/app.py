@@ -345,8 +345,33 @@ def interim_updates():
         d = dict(row)
         d["qoq"] = json.loads(d.pop("qoq_json") or "[]")
         d["yoy"] = json.loads(d.pop("yoy_json") or "[]")
+        d["operational_highlights"] = json.loads(d.pop("operational_highlights_json") or "[]")
+        d["key_drivers"] = json.loads(d.pop("key_drivers_json") or "[]")
         result.append(d)
     return jsonify(result)
+
+
+@app.route("/api/shareholder_info")
+def shareholder_info():
+    db = get_db()
+    symbol = request.args.get("symbol", "")
+    row = db.execute("SELECT * FROM shareholder_info_latest WHERE symbol = ?", (symbol,)).fetchone()
+    if not row:
+        return jsonify(None), 404
+    result = dict(row)
+    result["top_shareholders"] = json.loads(result.pop("top_shareholders_json") or "[]")
+    return jsonify(result)
+
+
+@app.route("/api/price_history")
+def price_history():
+    db = get_db()
+    symbol = request.args.get("symbol", "")
+    rows = db.execute(
+        "SELECT as_of, price, closing_price FROM market_data WHERE symbol = ? ORDER BY as_of DESC LIMIT 90",
+        (symbol,),
+    ).fetchall()
+    return jsonify([dict(r) for r in reversed(rows)])
 
 
 def _company_snapshot(db, symbol):

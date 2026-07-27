@@ -328,6 +328,26 @@
     font-family: var(--font-mono); font-size: 10px; color: var(--gold);
     text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
   }
+  .interim-takeaway {
+    background: var(--gold-tint); border: 1px solid var(--panel-line); border-left: 3px solid var(--gold);
+    border-radius: 5px; padding: 10px 14px; font-size: 13px; line-height: 1.55; color: var(--ink);
+    margin: 10px 0 14px;
+  }
+  .interim-narrative-toggle { font-size: 11px; color: var(--slate); cursor: pointer; margin-bottom: 10px; }
+  .interim-narrative-toggle summary { cursor: pointer; }
+
+  /* ---------- Shareholder Info card ---------- */
+  .shareholder-table-wrap { overflow-x: auto; }
+  .shareholder-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .shareholder-table th { text-align: left; font-family: var(--font-mono); font-size: 10px; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; border-bottom: 1px solid var(--panel-line); }
+  .shareholder-table td { padding: 6px 10px; border-bottom: 1px solid var(--panel-line); }
+  .shareholder-table td.num { font-family: var(--font-mono); text-align: right; white-space: nowrap; }
+  .shareholder-table tr:hover td { background: #FAFAF7; }
+
+  /* ---------- Price chart card ---------- */
+  .price-chart-wrap { padding: 4px 0; }
+  .price-chart-empty { color: var(--slate); font-size: 12px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -361,6 +381,7 @@
 
     <main class="overview-panel">
       <div class="company-card" id="companyCard"></div>
+      <div class="summary-card" id="priceChartCard"></div>
       <div class="feed-note">
         Documents captured from CSE's confirmed data feeds. New filings for tickers in your coverage universe accumulate here automatically over time — this is not a full historical archive yet. <code>source_type</code> shown on each item traces whether it arrived via automated collection or manual entry.
       </div>
@@ -368,6 +389,7 @@
       <div class="summary-card" id="thesisCard"></div>
       <div class="summary-card" id="summaryCard"></div>
       <div class="summary-card" id="valuationCard"></div>
+      <div class="summary-card" id="shareholderCard"></div>
       <div class="summary-card" id="financialDetailCard"></div>
       <div class="summary-card" id="quarterlyCard"></div>
       <div class="summary-card" id="whatChangedCard"></div>
@@ -431,7 +453,8 @@ async function loadQuarterly(symbol) {
     if (!existing || (r.basis === "GROUP" && existing.basis !== "GROUP")) byPeriod[r.period_end_date] = r;
   });
   quarterly = Object.keys(byPeriod).sort().map(k => byPeriod[k]).map(r => ({
-    period_label: r.period_label, revenue: r.revenue, pat: r.profit_after_tax, eps: r.eps_basic,
+    period_label: r.period_label, period_end_date: r.period_end_date, revenue: r.revenue,
+    pat: r.profit_after_tax, eps: r.eps_basic,
     source_doc_id: r.source_doc_id, source_page: r.income_statement_page || r.balance_sheet_page || r.cashflow_page,
   }));
 }
@@ -440,6 +463,18 @@ let marketData = null;
 async function loadMarketData(symbol) {
   const res = await fetch("/api/market_data?symbol=" + encodeURIComponent(symbol));
   marketData = res.status === 200 ? await res.json() : null;
+}
+
+let shareholderInfo = null;
+async function loadShareholderInfo(symbol) {
+  const res = await fetch("/api/shareholder_info?symbol=" + encodeURIComponent(symbol));
+  shareholderInfo = res.status === 200 ? await res.json() : null;
+}
+
+let priceHistory = [];
+async function loadPriceHistory(symbol) {
+  const res = await fetch("/api/price_history?symbol=" + encodeURIComponent(symbol));
+  priceHistory = res.status === 200 ? await res.json() : [];
 }
 
 let financialsAnnual = [];
@@ -493,17 +528,19 @@ async function selectSymbol(symbol) {
   await Promise.all([
     loadDocuments(activeSymbol), loadSummary(activeSymbol), loadQuarterly(activeSymbol),
     loadMarketData(activeSymbol), loadFinancials(activeSymbol), loadThesis(activeSymbol),
-    loadInterimUpdates(activeSymbol),
+    loadInterimUpdates(activeSymbol), loadShareholderInfo(activeSymbol), loadPriceHistory(activeSymbol),
   ]);
   await Promise.all([loadRatios(activeSymbol, financialsBasis), loadReportDiff(activeSymbol, financialsBasis)]);
   activeTab = "ALL";
   fdTab = "income";
   renderCompanyCard();
+  renderPriceChart();
   renderTabs();
   renderLedger();
   renderInterimUpdate();
   renderSummary();
   renderValuation();
+  renderShareholderInfo();
   renderFinancialDetail();
   renderQuarterly();
   renderWhatChanged();
@@ -606,8 +643,10 @@ function renderCompanyCard() {
     card.innerHTML = `<div class="empty-state">No company selected. Use the search bar above.</div>`;
     return;
   }
-  const price = marketData ? marketData.closing_price ?? marketData.price : null;
+  const price = marketData ? (marketData.closing_price || marketData.price) : null;
   const mcap = marketData ? marketData.market_cap : null;
+  const shares = shareholderInfo ? shareholderInfo.shares_in_issue : null;
+  const freeFloat = shareholderInfo ? shareholderInfo.public_holding_pct : null;
   card.innerHTML = `
     <div class="company-top">
       <div>
@@ -616,11 +655,12 @@ function renderCompanyCard() {
       </div>
     </div>
     <div class="stat-strip wide">
-      <div><div class="stat-label">Documents on file</div><div class="stat-value">${c.doc_count}</div></div>
       <div><div class="stat-label">Last price</div><div class="stat-value">${price !== null && price !== undefined ? "LKR " + fmtNum(price) : "not yet collected"}</div></div>
       <div><div class="stat-label">Market cap</div><div class="stat-value">${mcap ? "LKR " + fmtCompact(mcap) : "not yet collected"}</div></div>
+      <div><div class="stat-label">Shares in issue</div><div class="stat-value">${shares ? fmtCompact(shares) : "not yet collected"}</div></div>
+      <div><div class="stat-label">Free float</div><div class="stat-value">${freeFloat !== null && freeFloat !== undefined ? fmtPct(freeFloat) : "not yet collected"}</div></div>
     </div>
-    ${marketData ? `<div class="gaps-note">Price/market cap as of ${marketData.as_of}, source: CSE ${marketData.source} feed.</div>` : ""}
+    ${marketData ? `<div class="gaps-note">Price/market cap as of ${marketData.as_of}, source: CSE ${marketData.source} feed.${shareholderInfo ? ` Shares in issue/free float as of ${shareholderInfo.as_of_date}, source: ${shareholderInfo.source_doc_id}${shareholderInfo.source_page ? `, p.${shareholderInfo.source_page}` : ""}.` : ""}</div>` : ""}
   `;
 }
 
@@ -635,6 +675,87 @@ function fmtCompact(n) {
 function fmtPct(n) {
   if (n === undefined || n === null) return "—";
   return (n * 100).toFixed(1) + "%";
+}
+
+function renderPriceChart() {
+  const card = document.getElementById("priceChartCard");
+  const points = (priceHistory || [])
+    .map(p => ({ date: p.as_of, price: p.closing_price || p.price }))
+    .filter(p => p.price !== null && p.price !== undefined && p.price > 0);
+  if (points.length < 2) {
+    card.innerHTML = `
+      <div class="summary-card-header">Price Trend</div>
+      <div class="summary-card-sub">Daily closing price, accumulated automatically as the collector runs</div>
+      <div class="price-chart-empty">Not enough price history yet (need at least 2 trading days) — this builds up automatically over time.</div>
+    `;
+    return;
+  }
+  const w = 640, h = 160, padL = 8, padR = 8, padT = 10, padB = 10;
+  const prices = points.map(p => p.price);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const range = (maxP - minP) || 1;
+  const xStep = (w - padL - padR) / (points.length - 1);
+  const yFor = p => padT + (h - padT - padB) * (1 - (p - minP) / range);
+  const xFor = i => padL + i * xStep;
+  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(i).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ");
+  const areaD = pathD + ` L ${xFor(points.length - 1).toFixed(1)} ${(h - padB).toFixed(1)} L ${xFor(0).toFixed(1)} ${(h - padB).toFixed(1)} Z`;
+  const first = points[0], last = points[points.length - 1];
+
+  card.innerHTML = `
+    <div class="summary-card-header">Price Trend</div>
+    <div class="summary-card-sub">Daily closing price, accumulated automatically as the collector runs (${points.length} trading day${points.length === 1 ? "" : "s"} on file so far)</div>
+    <div class="price-chart-wrap">
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
+        <path d="${areaD}" fill="var(--gold-tint)" stroke="none"></path>
+        <path d="${pathD}" fill="none" stroke="var(--gold)" stroke-width="1.75"></path>
+      </svg>
+      <div class="stat-strip wide">
+        <div><div class="stat-label">${first.date}</div><div class="stat-value">LKR ${fmtNum(first.price)}</div></div>
+        <div><div class="stat-label">${last.date}</div><div class="stat-value">LKR ${fmtNum(last.price)}</div></div>
+        <div><div class="stat-label">Change over period</div><div class="stat-value">${fmtDelta(last.price, first.price) || "—"}</div></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderShareholderInfo() {
+  const card = document.getElementById("shareholderCard");
+  if (!shareholderInfo) {
+    card.innerHTML = `
+      <div class="summary-card-header">Shareholder Information</div>
+      <div class="summary-card-sub">Shares in issue, free float and largest shareholders, cited to source filings</div>
+      <div class="empty-state">No shareholder information extracted yet for this company.</div>
+    `;
+    return;
+  }
+  const top = shareholderInfo.top_shareholders || [];
+  card.innerHTML = `
+    <div class="summary-card-header">Shareholder Information</div>
+    <div class="summary-card-sub">As at ${shareholderInfo.as_of_date}, cited to source filings</div>
+    <div class="stat-strip wide">
+      <div><div class="stat-label">Shares in issue</div><div class="stat-value">${shareholderInfo.shares_in_issue ? fmtCompact(shareholderInfo.shares_in_issue) : "—"}</div></div>
+      <div><div class="stat-label">Free float</div><div class="stat-value">${shareholderInfo.public_holding_pct !== null && shareholderInfo.public_holding_pct !== undefined ? fmtPct(shareholderInfo.public_holding_pct) : "—"}</div></div>
+      <div><div class="stat-label">Public shareholders</div><div class="stat-value">${shareholderInfo.public_shareholders_count ? fmtNum(shareholderInfo.public_shareholders_count) : "—"}</div></div>
+    </div>
+    ${top.length ? `
+      <div class="shareholder-table-wrap">
+        <table class="shareholder-table">
+          <thead><tr><th>#</th><th>Shareholder</th><th>Shares</th><th>%</th></tr></thead>
+          <tbody>
+            ${top.map(s => `
+              <tr>
+                <td>${s.rank}</td>
+                <td>${s.name}</td>
+                <td class="num">${fmtNum(s.shares)}</td>
+                <td class="num">${s.pct !== null && s.pct !== undefined ? s.pct.toFixed(2) + "%" : "—"}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : `<div class="empty-state">No shareholder list on file for this company.</div>`}
+    <div class="gaps-note">Source: ${shareholderInfo.source_doc_id}${shareholderInfo.source_page ? `, p.${shareholderInfo.source_page}` : ""}.</div>
+  `;
 }
 
 function renderValuation() {
@@ -815,13 +936,31 @@ function renderInterimUpdate() {
   }
   card.style.display = "";
   const latest = interimUpdates[0];
+  const highlights = latest.operational_highlights || [];
+  const drivers = latest.key_drivers || [];
   card.innerHTML = `
     <div class="interim-header-row">
       <div class="summary-card-header" style="margin-bottom:0;">Latest Interim Result</div>
       <span class="new-badge">New</span>
     </div>
     <div class="summary-card-sub">${latest.period_label} — generated ${new Date(latest.generated_at).toLocaleDateString()}, citing ${latest.source_doc_id}${latest.source_page ? `, p.${latest.source_page}` : ""}</div>
-    <div class="summary-text">${latest.note_text}</div>
+    ${latest.takeaway ? `<div class="interim-takeaway"><b>One-line takeaway:</b> ${latest.takeaway}</div>` : ""}
+    <div class="interim-subgrid">
+      <div>
+        <div class="interim-subgrid-label">Operational Highlights</div>
+        ${highlights.length ? `<ul class="thesis-list">${highlights.map(h => `<li>${h}</li>`).join("")}</ul>` : `<div class="empty-state">Not available.</div>`}
+      </div>
+      <div>
+        <div class="interim-subgrid-label">Key Earnings Driver(s)</div>
+        ${drivers.length ? `<ul class="thesis-list">${drivers.map(d => `<li>${d}</li>`).join("")}</ul>` : `<div class="empty-state">Not available.</div>`}
+      </div>
+    </div>
+    ${latest.note_text ? `
+      <details class="interim-narrative-toggle">
+        <summary>Full narrative</summary>
+        <div class="summary-text" style="margin-top:8px;">${latest.note_text}</div>
+      </details>
+    ` : ""}
     <div class="interim-subgrid">
       <div>
         <div class="interim-subgrid-label">QoQ — vs immediately preceding quarter</div>
@@ -1019,11 +1158,19 @@ function fmtDelta(curr, prev) {
   return `<span class="${cls}">${sign}${pct.toFixed(1)}%</span>`;
 }
 
+function periodGapLabel(newDate, priorDate) {
+  if (!newDate || !priorDate) return "";
+  const days = (new Date(newDate) - new Date(priorDate)) / 86400000;
+  if (days >= 60 && days <= 120) return "QoQ";
+  if (days >= 300 && days <= 430) return "YoY";
+  return `Δ${Math.round(days / 30)}mo`;
+}
+
 function renderQuarterly() {
   const card = document.getElementById("quarterlyCard");
   if (!quarterly.length) {
     card.innerHTML = `
-      <div class="summary-card-header">Quarterly Performance (QoQ)</div>
+      <div class="summary-card-header">Quarterly Performance</div>
       <div class="summary-card-sub">Revenue, PAT and EPS by quarter, cited to source interim filings</div>
       <div class="empty-state">No quarterly figures extracted yet for this company. Ask about this company's recent quarter and it will be added here.</div>
     `;
@@ -1031,23 +1178,25 @@ function renderQuarterly() {
   }
   const rows = quarterly; // already sorted by period_end_date ascending
   card.innerHTML = `
-    <div class="summary-card-header">Quarterly Performance (QoQ)</div>
-    <div class="summary-card-sub">Revenue, PAT and EPS by quarter — % change is vs the immediately preceding quarter on file</div>
+    <div class="summary-card-header">Quarterly Performance</div>
+    <div class="summary-card-sub">Revenue, PAT and EPS by quarter — Δ is vs the prior period on file, labeled QoQ (~3 months apart) or YoY (~12 months apart) since gaps in coverage mean consecutive rows aren't always one quarter apart</div>
     <div class="earnings-table-wrap">
       <table class="earnings-table qtr-table">
         <thead><tr>
-          <th>Quarter</th><th>Revenue</th><th>QoQ</th><th>PAT</th><th>QoQ</th><th>EPS</th><th>Source</th>
+          <th>Quarter</th><th>Revenue</th><th>Δ Revenue</th><th>PAT</th><th>Δ PAT</th><th>EPS</th><th>Source</th>
         </tr></thead>
         <tbody>
           ${rows.map((r, i) => {
             const prev = i > 0 ? rows[i - 1] : null;
+            const label = prev ? periodGapLabel(r.period_end_date, prev.period_end_date) : "";
+            const labelSpan = label ? ` <span class="cite">(${label})</span>` : "";
             return `
               <tr>
                 <td>${r.period_label}</td>
                 <td class="${r.revenue < 0 ? 'neg' : ''}">${fmtNum(r.revenue)}</td>
-                <td>${prev ? fmtDelta(r.revenue, prev.revenue) : "—"}</td>
+                <td>${prev ? fmtDelta(r.revenue, prev.revenue) + labelSpan : "—"}</td>
                 <td class="${r.pat < 0 ? 'neg' : ''}">${fmtNum(r.pat)}</td>
-                <td>${prev ? fmtDelta(r.pat, prev.pat) : "—"}</td>
+                <td>${prev ? fmtDelta(r.pat, prev.pat) + labelSpan : "—"}</td>
                 <td>${fmtNum(r.eps)}</td>
                 <td class="cite">${r.source_doc_id || "—"}${r.source_page ? `, p.${r.source_page}` : ""}</td>
               </tr>
@@ -1056,7 +1205,7 @@ function renderQuarterly() {
         </tbody>
       </table>
     </div>
-    ${rows.length === 1 ? `<div class="gaps-note">Only one quarter on file so far — QoQ trend will appear once a second quarter is captured.</div>` : ""}
+    ${rows.length === 1 ? `<div class="gaps-note">Only one quarter on file so far — a trend will appear once a second quarter is captured.</div>` : ""}
   `;
 }
 
@@ -1192,7 +1341,7 @@ function renderCompareTable() {
           </tr>
           <tr>
             <td class="row-label">Last price</td>
-            ${compareData.map(c => { const m = c.market_data; return `<td>${m ? "LKR " + fmtNum(m.closing_price ?? m.price) : "—"}</td>`; }).join("")}
+            ${compareData.map(c => { const m = c.market_data; return `<td>${m ? "LKR " + fmtNum(m.closing_price || m.price) : "—"}</td>`; }).join("")}
           </tr>
           <tr>
             <td class="row-label">P/E</td>
@@ -1249,18 +1398,20 @@ async function renderAll() {
     await Promise.all([
       loadDocuments(activeSymbol), loadSummary(activeSymbol), loadQuarterly(activeSymbol),
       loadMarketData(activeSymbol), loadFinancials(activeSymbol), loadThesis(activeSymbol),
-      loadInterimUpdates(activeSymbol),
+      loadInterimUpdates(activeSymbol), loadShareholderInfo(activeSymbol), loadPriceHistory(activeSymbol),
     ]);
     await Promise.all([loadRatios(activeSymbol, financialsBasis), loadReportDiff(activeSymbol, financialsBasis)]);
   }
   const c = universe.find(x => x.symbol === activeSymbol);
   if (c) document.getElementById("searchInput").value = `${c.symbol} — ${c.company_name}`;
   renderCompanyCard();
+  renderPriceChart();
   renderTabs();
   renderLedger();
   renderInterimUpdate();
   renderSummary();
   renderValuation();
+  renderShareholderInfo();
   renderFinancialDetail();
   renderQuarterly();
   renderWhatChanged();

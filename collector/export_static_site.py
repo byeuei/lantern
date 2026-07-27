@@ -106,8 +106,32 @@ def _interim_updates(db, symbol):
         d = dict(row)
         d["qoq"] = json.loads(d.pop("qoq_json") or "[]")
         d["yoy"] = json.loads(d.pop("yoy_json") or "[]")
+        d["operational_highlights"] = json.loads(d.pop("operational_highlights_json") or "[]")
+        d["key_drivers"] = json.loads(d.pop("key_drivers_json") or "[]")
         result.append(d)
     return result
+
+
+def _shareholder_info(db, symbol):
+    row = db.execute(
+        "SELECT * FROM shareholder_info_latest WHERE symbol = ?", (symbol,)
+    ).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    d["top_shareholders"] = json.loads(d.pop("top_shareholders_json") or "[]")
+    return d
+
+
+def _price_history(db, symbol, days=90):
+    rows = db.execute(
+        """
+        SELECT as_of, price, closing_price FROM market_data
+        WHERE symbol = ? ORDER BY as_of DESC LIMIT ?
+        """,
+        (symbol, days),
+    ).fetchall()
+    return [dict(r) for r in reversed(rows)]
 
 
 def _compare_snapshot(db, symbol, company_name):
@@ -182,6 +206,8 @@ def build_company_bundle(db, symbol, company_name):
         "ratios": ratios,
         "report_diff": report_diff,
         "interim_updates": _interim_updates(db, symbol),
+        "shareholder_info": _shareholder_info(db, symbol),
+        "price_history": _price_history(db, symbol),
         "compare_snapshot": _compare_snapshot(db, symbol, company_name),
     }
 
