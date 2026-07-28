@@ -174,7 +174,9 @@ def build_company_bundle(db, symbol, company_name):
     """, (symbol,)).fetchall()]
 
     summary_row = db.execute("""
-        SELECT symbol, company_name, generated_at, summary_text, gaps_note
+        SELECT symbol, company_name, generated_at, summary_text, gaps_note,
+               income_statement_analysis, balance_sheet_analysis, cash_flow_analysis,
+               equity_statement_analysis, other_statements_analysis
         FROM summaries WHERE symbol = ?
     """, (symbol,)).fetchone()
     summary = None

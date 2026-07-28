@@ -106,14 +106,23 @@ def init_db():
         conn.execute("ALTER TABLE documents ADD COLUMN source_type TEXT NOT NULL DEFAULT 'automated'")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS summaries (
-            symbol                   TEXT PRIMARY KEY,
-            company_name             TEXT,
-            generated_at             TEXT NOT NULL,
-            summary_text             TEXT NOT NULL,
-            earnings_comparison_json TEXT NOT NULL,
-            gaps_note                TEXT
+            symbol                       TEXT PRIMARY KEY,
+            company_name                 TEXT,
+            generated_at                 TEXT NOT NULL,
+            summary_text                 TEXT NOT NULL,     -- overall picture / summary
+            gaps_note                    TEXT,
+            income_statement_analysis    TEXT,               -- narrative analysis per statement,
+            balance_sheet_analysis       TEXT,                -- multi-year trend read from the
+            cash_flow_analysis           TEXT,                 -- ANNUAL financial_statements rows
+            equity_statement_analysis    TEXT,                  -- already on file for this symbol
+            other_statements_analysis    TEXT                   -- optional: segment/related-party/etc
         )
     """)
+    summaries_cols = {row[1] for row in conn.execute("PRAGMA table_info(summaries)")}
+    for col in ("income_statement_analysis", "balance_sheet_analysis", "cash_flow_analysis",
+                "equity_statement_analysis", "other_statements_analysis"):
+        if col not in summaries_cols:
+            conn.execute(f"ALTER TABLE summaries ADD COLUMN {col} TEXT")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS dividends (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
