@@ -914,14 +914,17 @@ function renderWhatChanged() {
   `;
 }
 
-function renderMiniDiffTable(rows) {
+function renderMiniDiffTable(rows, mode) {
   if (!rows || !rows.length) return `<div class="empty-state">Not available.</div>`;
+  const labelFn = mode === "yoy" ? fyLabel : quarterLabel;
+  const priorHeader = labelFn(rows[0].prior_period_end_date) || "Prior";
+  const newHeader = labelFn(rows[0].new_period_end_date) || "New";
   return `
     <div class="earnings-table-wrap">
       <table class="earnings-table">
-        <thead><tr><th>Metric</th><th>Prior</th><th>New</th><th>Change</th></tr></thead>
+        <thead><tr><th>Metric</th><th>${priorHeader}</th><th>${newHeader}</th><th>Change</th></tr></thead>
         <tbody>
-          ${rows.slice(0, 8).map(d => `
+          ${rows.map(d => `
             <tr>
               <td>${d.label}</td>
               <td>${fmtNum(d.prior_value)}</td>
@@ -972,11 +975,11 @@ function renderInterimUpdate() {
     <div class="interim-subgrid">
       <div>
         <div class="interim-subgrid-label">QoQ — vs immediately preceding quarter</div>
-        ${renderMiniDiffTable(latest.qoq)}
+        ${renderMiniDiffTable(latest.qoq, "qoq")}
       </div>
       <div>
         <div class="interim-subgrid-label">YoY — vs same quarter last year</div>
-        ${renderMiniDiffTable(latest.yoy)}
+        ${renderMiniDiffTable(latest.yoy, "yoy")}
       </div>
     </div>
     ${latest.gaps_note ? `<div class="gaps-note"><b>Gaps/limitations:</b> ${latest.gaps_note}</div>` : ""}
@@ -1172,6 +1175,19 @@ function periodGapLabel(newDate, priorDate) {
   if (days >= 60 && days <= 120) return "QoQ";
   if (days >= 300 && days <= 430) return "YoY";
   return `Δ${Math.round(days / 30)}mo`;
+}
+
+function quarterLabel(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const q = Math.floor(d.getUTCMonth() / 3) + 1;
+  return `Q${q} ${d.getUTCFullYear()}`;
+}
+
+function fyLabel(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return `FY${String(d.getUTCFullYear()).slice(-2)}`;
 }
 
 function renderQuarterly() {
