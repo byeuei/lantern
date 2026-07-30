@@ -403,6 +403,23 @@ def _company_snapshot(db, symbol):
 
     thesis_row = db.execute("SELECT recommendation, composite_score, thesis_text FROM thesis WHERE symbol = ?", (symbol,)).fetchone()
 
+    # Ratios and YoY growth -- absolute Revenue/PAT/EPS aren't comparable across
+    # companies of different sizes, so the compare view needs scale-independent
+    # metrics instead: margins, returns, leverage, and growth rates.
+    ratios_annual = fundamental_ratios(annual_rows[-1]) if annual_rows else None
+    ratios_quarterly = fundamental_ratios(interim_rows[-1]) if interim_rows else None
+
+    revenue_growth_yoy = None
+    pat_growth_yoy = None
+    if len(annual_rows) >= 2:
+        prev, latest = annual_rows[-2], annual_rows[-1]
+        prev_rev, latest_rev = prev["revenue"], latest["revenue"]
+        if prev_rev not in (None, 0) and latest_rev is not None:
+            revenue_growth_yoy = (latest_rev - prev_rev) / abs(prev_rev)
+        prev_pat, latest_pat = prev["profit_after_tax"], latest["profit_after_tax"]
+        if prev_pat not in (None, 0) and latest_pat is not None:
+            pat_growth_yoy = (latest_pat - prev_pat) / abs(prev_pat)
+
     return {
         "symbol": symbol,
         "company_name": company_name,
@@ -412,6 +429,10 @@ def _company_snapshot(db, symbol):
         "quarterly": quarters,
         "market_data": market,
         "valuation": valuation,
+        "ratios_annual": ratios_annual,
+        "ratios_quarterly": ratios_quarterly,
+        "revenue_growth_yoy": revenue_growth_yoy,
+        "pat_growth_yoy": pat_growth_yoy,
         "thesis": dict(thesis_row) if thesis_row else None,
     }
 

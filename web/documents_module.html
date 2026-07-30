@@ -1355,13 +1355,24 @@ function renderCompareTable() {
     return;
   }
 
-  // Union of all fiscal years across companies' annual earnings, most recent first.
-  const yearSet = new Set();
-  compareData.forEach(c => (c.annual || []).forEach(r => yearSet.add(r.period)));
-  const years = Array.from(yearSet).sort().reverse();
-
   const latestQtr = c => (c.quarterly && c.quarterly.length) ? c.quarterly[c.quarterly.length - 1] : null;
-  const annualFor = (c, period) => (c.annual || []).find(r => r.period === period);
+  const latestFY = c => (c.annual && c.annual.length) ? c.annual[c.annual.length - 1].period : null;
+
+  // Absolute Revenue/PAT/EPS aren't comparable across companies of different
+  // sizes -- scale-independent metrics (margins, returns, leverage, growth
+  // rates) are what actually let you rank businesses side by side.
+  const pctRow = (label, getter) => `
+    <tr>
+      <td class="row-label">${label}</td>
+      ${compareData.map(c => { const v = getter(c); return `<td class="${typeof v === 'number' && v < 0 ? 'neg' : ''}">${v === null || v === undefined ? "—" : fmtPct(v)}</td>`; }).join("")}
+    </tr>
+  `;
+  const xRow = (label, getter) => `
+    <tr>
+      <td class="row-label">${label}</td>
+      ${compareData.map(c => { const v = getter(c); return `<td class="${typeof v === 'number' && v < 0 ? 'neg' : ''}">${v === null || v === undefined ? "—" : fmtNum(v) + "x"}</td>`; }).join("")}
+    </tr>
+  `;
 
   holder.innerHTML = `
     <div class="compare-table-wrap">
@@ -1385,44 +1396,28 @@ function renderCompareTable() {
             <td class="row-label">Last price</td>
             ${compareData.map(c => { const m = c.market_data; return `<td>${m ? "LKR " + fmtNum(m.closing_price || m.price) : "—"}</td>`; }).join("")}
           </tr>
+          ${xRow("P/E", c => c.valuation && c.valuation.pe_ratio)}
+          ${xRow("P/B", c => c.valuation && c.valuation.pb_ratio)}
+          ${xRow("EV/EBITDA", c => c.valuation && c.valuation.ev_ebitda)}
+          ${pctRow("Dividend yield", c => c.valuation && c.valuation.dividend_yield)}
+          <tr><td class="row-label" colspan="${compareData.length + 1}" style="font-weight:700;padding-top:14px;">Growth &amp; Profitability (latest FY: ${compareData.map(latestFY).filter(Boolean).join(" / ") || "—"})</td></tr>
+          ${pctRow("Revenue growth (YoY)", c => c.revenue_growth_yoy)}
+          ${pctRow("PAT growth (YoY)", c => c.pat_growth_yoy)}
+          ${pctRow("Gross margin", c => c.ratios_annual && c.ratios_annual.gross_margin)}
+          ${pctRow("Operating margin", c => c.ratios_annual && c.ratios_annual.operating_margin)}
+          ${pctRow("Net margin", c => c.ratios_annual && c.ratios_annual.net_margin)}
+          ${pctRow("ROE", c => c.ratios_annual && c.ratios_annual.roe)}
+          ${pctRow("ROA", c => c.ratios_annual && c.ratios_annual.roa)}
+          <tr><td class="row-label" colspan="${compareData.length + 1}" style="font-weight:700;padding-top:14px;">Balance Sheet Health</td></tr>
+          ${xRow("Current ratio", c => c.ratios_annual && c.ratios_annual.current_ratio)}
+          ${xRow("Debt / Equity", c => c.ratios_annual && c.ratios_annual.debt_to_equity)}
+          ${xRow("Interest coverage", c => c.ratios_annual && c.ratios_annual.interest_coverage)}
+          <tr><td class="row-label" colspan="${compareData.length + 1}" style="font-weight:700;padding-top:14px;">Latest Quarter</td></tr>
           <tr>
-            <td class="row-label">P/E</td>
-            ${compareData.map(c => { const v = c.valuation; return `<td>${v && v.pe_ratio !== null && v.pe_ratio !== undefined ? fmtNum(v.pe_ratio) + "x" : "—"}</td>`; }).join("")}
-          </tr>
-          <tr>
-            <td class="row-label">P/B</td>
-            ${compareData.map(c => { const v = c.valuation; return `<td>${v && v.pb_ratio !== null && v.pb_ratio !== undefined ? fmtNum(v.pb_ratio) + "x" : "—"}</td>`; }).join("")}
-          </tr>
-          <tr>
-            <td class="row-label">Dividend yield</td>
-            ${compareData.map(c => { const v = c.valuation; return `<td>${v && v.dividend_yield !== null && v.dividend_yield !== undefined ? fmtPct(v.dividend_yield) : "—"}</td>`; }).join("")}
-          </tr>
-          ${years.map(y => `
-            <tr>
-              <td class="row-label">${y} Revenue</td>
-              ${compareData.map(c => { const r = annualFor(c, y); return `<td class="${r && r.revenue < 0 ? 'neg' : ''}">${r ? fmtNum(r.revenue) : "—"}</td>`; }).join("")}
-            </tr>
-            <tr>
-              <td class="row-label">${y} PAT</td>
-              ${compareData.map(c => { const r = annualFor(c, y); const hasPat = r && r.pat !== undefined && r.pat !== null; return `<td class="${hasPat && r.pat < 0 ? 'neg' : ''}">${hasPat ? fmtNum(r.pat) : "—"}</td>`; }).join("")}
-            </tr>
-            <tr>
-              <td class="row-label">${y} EPS</td>
-              ${compareData.map(c => { const r = annualFor(c, y); return `<td>${r && r.eps !== undefined ? fmtNum(r.eps) : "—"}</td>`; }).join("")}
-            </tr>
-          `).join("")}
-          <tr>
-            <td class="row-label">Latest quarter</td>
+            <td class="row-label">Period</td>
             ${compareData.map(c => { const q = latestQtr(c); return `<td>${q ? q.period : "—"}</td>`; }).join("")}
           </tr>
-          <tr>
-            <td class="row-label">Latest quarter revenue</td>
-            ${compareData.map(c => { const q = latestQtr(c); return `<td>${q ? fmtNum(q.revenue) : "—"}</td>`; }).join("")}
-          </tr>
-          <tr>
-            <td class="row-label">Latest quarter PAT</td>
-            ${compareData.map(c => { const q = latestQtr(c); return `<td class="${q && q.pat < 0 ? 'neg' : ''}">${q ? fmtNum(q.pat) : "—"}</td>`; }).join("")}
-          </tr>
+          ${pctRow("Net margin (quarter)", c => c.ratios_quarterly && c.ratios_quarterly.net_margin)}
           <tr>
             <td class="row-label">AI Summary</td>
             ${compareData.map(c => `<td class="compare-summary-cell">${c.summary_text ? c.summary_text.slice(0, 220) + (c.summary_text.length > 220 ? "…" : "") : `<span style="color:var(--slate);font-style:italic">No summary yet</span>`}</td>`).join("")}
