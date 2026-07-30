@@ -4,19 +4,22 @@ Personal research platform for the Colombo Stock Exchange. Goal: cut company res
 time from hours to under 5 minutes, backed by a real, verified, growing document and
 data archive — not by an AI guessing at numbers.
 
-**Read this whole file before changing anything.** It's the handoff from a long design
-conversation, and it explains what's real, what's a prototype, and what's deliberately
-not built yet.
+**Read this whole file before changing anything.** It started as the handoff from a
+long design conversation; the status table below has since been updated (2026-07-30)
+to match what's actually running, not the original prototype snapshot.
 
-## Project status (as of this handoff)
+## Project status (as of 2026-07-30)
 
 | Piece | Status |
 |---|---|
 | PRD, research methodology, Collector architecture | Designed, in `docs/` |
 | CSE data source | Reverse-engineered, confirmed working, unofficial (see "What's confirmed" below) |
-| Documents collector (`collector/cse_documents_collector.py`) | Working V0.1 — polls live, saves to SQLite + local PDFs. Has NOT been run repeatedly over time yet, so its database is likely empty or near-empty at handoff. |
-| Web UI (`web/documents_module.html`) | Static prototype with hand-embedded sample data, NOT wired to the real SQLite database yet. Visual direction only. |
-| Historical backfill (past 5 years) | Not started. Deliberately out of scope for the collector script — see below. |
+| Documents collector (`collector/cse_documents_collector.py`) | Running daily via `collector/run_daily_collector.ps1` (Windows Task Scheduler). DB has real accumulated data: 693 documents, 439 dividends, 85 financial statement periods, 3,632 market data points, across the full 264-company coverage universe. |
+| Manual entry tools (`collector/financials_entry.py`, `collector/manual_backfill.py`) | Working — used to hand-enter interim/annual figures (with page-citation validation) and backfill older documents the live feed can't surface. Precedent: CCS financial statements, KZOO interim updates. |
+| Web UI — live (`web/app.py`) | Working Flask app, reads real SQLite DB via `analytics/metrics.py` and `analytics/report_diff.py`, Basic Auth protected, GitHub webhook auto-deploy at `/deploy-hook`. |
+| Web UI — static (`docs/index.html` + `docs/site_data/`) | Working — `collector/export_static_site.py` exports the DB + analytics into per-company JSON (264 files) for GitHub Pages hosting. Automated commits ("Update site data") keep it current. |
+| Analytics (`analytics/thesis_engine.py`) | Working — generates written thesis/summary entries per company (6 so far). |
+| Historical backfill (past 5 years) | Ongoing, one company at a time via manual_backfill.py / financials_entry.py — not automatable, see below. |
 
 ## What's confirmed true about the data source (don't re-derive this, it cost real effort)
 
@@ -54,23 +57,21 @@ structurally cannot provide this (see above). The only real path:
 
 ## Immediate next steps, roughly in order
 
-1. **Finalize the real coverage universe list** (~60 tickers) and put it in
-   `collector/cse_documents_collector.py`'s `COVERAGE_UNIVERSE` — it currently has a
-   starter guess, not the real list.
-2. **Get the collector running on a schedule** (daily is enough) so it starts
-   accumulating real history for covered names going forward. On Windows this can be
-   Task Scheduler; a cron job if this ends up on a server/Linux box eventually.
-3. **Wire `web/documents_module.html` to the real SQLite database** instead of its
-   current hand-embedded sample data — this is a mechanical change (read from
-   `data/cse_documents.db` instead of the hardcoded `DOCS` array), but needs a small
-   local server or a build step since a static HTML file can't read a SQLite file
-   directly from the browser.
-4. **Do the one-time historical backfill** for the top-priority names in the coverage
-   universe (see "What's NOT solved" above).
-5. **Re-read `docs/Data_Collector_Design.md` section 0** before doing much more —
-   it has the phased build plan (Phase 0 → Phase 3) and explicitly recommends NOT
-   over-building resilience infrastructure (Postgres, alerting, backups) before the
-   basics above are proven out with real, accumulating data.
+The original bootstrapping steps (finalize coverage universe, get the collector on a
+schedule, wire the UI to the real DB) are all done — see status table above. Current
+active work:
+
+1. **Historical backfill and interim-report entry, per company, as new filings land.**
+   The recurring workflow: when a company releases a new interim/annual report, use
+   `collector/financials_entry.py` to hand-transcribe the figures (with page
+   citations) into `financial_statements`, and `collector/manual_backfill.py` for the
+   underlying document if the live feed didn't catch it. CCS and KZOO are worked
+   examples.
+2. **Expand thesis/summary coverage** beyond the current 6 companies via
+   `analytics/thesis_engine.py`.
+3. **Re-read `docs/Data_Collector_Design.md` section 0`** before adding new
+   infrastructure — it explicitly recommends not over-building resilience (Postgres,
+   alerting, backups) ahead of need.
 
 ## Folder structure
 
@@ -78,15 +79,27 @@ structurally cannot provide this (see above). The only real path:
 cse-research-platform/
 ├── README.md              (this file)
 ├── docs/
-│   ├── PRD.md                    — product requirements, V1/V2 scope, user journeys
-│   ├── Research_Framework.md      — the analytical methodology every AI output should follow
-│   └── Data_Collector_Design.md   — full collector architecture, schema, and design decisions
+│   ├── PRD.md                       — product requirements, V1/V2 scope, user journeys
+│   ├── Research_Framework.md        — the analytical methodology every AI output should follow
+│   ├── Data_Collector_Design.md     — full collector architecture, schema, and design decisions
+│   ├── index.html                   — static frontend (GitHub Pages), reads docs/site_data/
+│   └── site_data/                   — per-company JSON export (264 companies) + coverage_universe.json
 ├── collector/
-│   └── cse_documents_collector.py — working V0.1 documents collector (see status above)
+│   ├── cse_documents_collector.py   — daily poller, writes documents to SQLite + local PDFs
+│   ├── financials_entry.py          — manual financial-statement entry with citation validation
+│   ├── manual_backfill.py           — manual document backfill (IR pages, older cdn.cse.lk links)
+│   ├── export_static_site.py        — exports DB + analytics into docs/site_data/
+│   ├── publish_static_site.py       — commits/pushes the static export
+│   ├── sync_to_pythonanywhere.py    — syncs the live Flask deployment
+│   └── run_daily_collector.ps1      — Windows Task Scheduler entry point
+├── analytics/
+│   ├── metrics.py                   — fundamental ratios, valuation multiples
+│   ├── report_diff.py               — period-over-period diffs (YoY/QoQ)
+│   └── thesis_engine.py             — per-company written thesis/summary generation
 ├── web/
-│   └── documents_module.html      — static UI prototype, sample data only
-└── data/                          — collector's database and downloaded PDFs land here
-                                      (empty at handoff; .gitkeep placeholder)
+│   ├── app.py                       — live Flask API (Basic Auth, GitHub deploy webhook)
+│   └── documents_module.html        — UI served by app.py
+└── data/                            — cse_documents.db (SQLite) and downloaded PDFs
 ```
 
 ## A note on how this project has been worked so far
