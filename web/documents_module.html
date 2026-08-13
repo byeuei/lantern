@@ -367,7 +367,7 @@
   </div>
 
   <div class="search-row" id="searchRow">
-    <input class="search-input" id="searchInput" type="text" placeholder="Search company or ticker (e.g. JKH, Tokyo Cement)…" autocomplete="off">
+    <input class="search-input" id="searchInput" type="text" placeholder="Search…" autocomplete="off">
     <div class="search-results" id="searchResults"></div>
   </div>
 
@@ -516,14 +516,13 @@ async function loadInterimUpdates(symbol) {
 async function selectSymbol(symbol) {
   activeSymbol = symbol;
 
-  // Settle the search UI immediately -- close the dropdown and show the pick
-  // in the box -- before touching any of the card-rendering below. That way
-  // a failure in one card's render (bad/unexpected API data, a network hiccup)
-  // can never leave the dropdown hanging open or the search box unchanged;
-  // the search interaction itself always completes on the spot.
-  const input = document.getElementById("searchInput");
-  const c = universe.find(x => x.symbol === symbol);
-  input.value = c ? `${c.symbol} — ${c.company_name}` : symbol;
+  // Settle the search UI immediately -- clear the box and close the dropdown --
+  // before touching any of the card-rendering below. That way a failure in one
+  // card's render (bad/unexpected API data, a network hiccup) can never leave
+  // the dropdown hanging open or the search box in a stale state; the search
+  // interaction itself always completes on the spot. The selected company is
+  // shown in the company card below, not in the search box itself.
+  document.getElementById("searchInput").value = "";
   closeSearchResults();
 
   await Promise.all([
@@ -1439,8 +1438,6 @@ async function renderAll() {
     ]);
     await Promise.all([loadRatios(activeSymbol, financialsBasis), loadReportDiff(activeSymbol, financialsBasis)]);
   }
-  const c = universe.find(x => x.symbol === activeSymbol);
-  if (c) document.getElementById("searchInput").value = `${c.symbol} — ${c.company_name}`;
   renderCompanyCard();
   renderPriceChart();
   renderTabs();
