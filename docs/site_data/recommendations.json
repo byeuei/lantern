@@ -1,0 +1,100 @@
+{
+  "as_of": "2026-11-04",
+  "headline": "Eight recommended CSE counters across banking, construction and tourism",
+  "disclaimer": "Screening-level research view, not personal investment advice. Most of these companies have one or two periods of results on the platform; valuation figures are run-rate or trailing estimates, not audited. Quarterly results for July to September are due by mid-November and the central bank meets on 20 November, so refresh before acting.",
+  "sectors": [
+    {
+      "name": "Banking",
+      "conviction": "High",
+      "summary": "Interest rates were raised to 8.75% in May and inflation reached 8% in August, which usually lifts bank earnings. Sri Lankan banks trade at roughly 5x earnings and below book value, with dividends of about 5 to 6.5%. The main risk is customers struggling to repay as the economy copes with higher prices, which is why banks are already setting aside more for bad loans.",
+      "watch": "A rise in bad loans, or a further rate rise at the 20 November central bank meeting.",
+      "stocks": [
+        {
+          "symbol": "COMB",
+          "name": "Commercial Bank of Ceylon",
+          "conviction": "High",
+          "why": "The biggest private bank and the most efficient: it spends under Rs 28 to earn Rs 100. Profit grew about 14% with no one-off help, and the shares are cheap against both earnings and the value of the bank's assets.",
+          "valuation": "~4.8x earnings · 0.86x book value · ~4.7% dividend yield",
+          "risk": "It set aside a third more money for possible bad loans this year."
+        },
+        {
+          "symbol": "SAMP",
+          "name": "Sampath Bank",
+          "conviction": "High",
+          "why": "It is earning a wider gap between what it charges on loans and pays on deposits, and profit is up about 14%. It set aside more money as a precaution, yet its actual bad loans fell.",
+          "valuation": "~4.7x earnings · 0.86x book value · ~6.5% dividend yield (last full-year payout)",
+          "risk": "The extra provisions show management expects some pain ahead."
+        },
+        {
+          "symbol": "HNB",
+          "name": "Hatton National Bank",
+          "conviction": "Medium-high",
+          "why": "Its core lending income grew about 23%. Group profit looks flat only because last year included a one-off release of bad-loan reserves, so the weakness is in the comparison, not the business.",
+          "valuation": "~5.1x earnings · ~0.67x book value · ~5.2% dividend yield",
+          "risk": "Some corporate and small-business loans could turn bad."
+        }
+      ]
+    },
+    {
+      "name": "Construction",
+      "conviction": "Medium",
+      "summary": "About Rs 878bn of post-cyclone rebuilding and a public-works pipeline give multi-year demand. But activity is cooling (the official construction index fell from 75 in January to 59.4 in August), a bitumen shortage is slowing roads, local cement capacity is about double demand, and higher interest rates raise project costs. Recovery is real but patchy.",
+      "watch": "Input-cost inflation, delays to government projects, and the financing cost of higher rates.",
+      "stocks": [
+        {
+          "symbol": "RCL",
+          "name": "Royal Ceramics Lanka",
+          "conviction": "Medium-high",
+          "why": "It makes the tiles and sanitaryware that go into new buildings. Profit from its factories grew about 88% this quarter, and the shares are the best value of the construction names.",
+          "valuation": "~6.2x trailing earnings · ~0.8x book value",
+          "risk": "About 40% of profit is its share of LB Finance's earnings, not tiles, and it built up a lot of stock that tied up cash."
+        },
+        {
+          "symbol": "AEL",
+          "name": "Access Engineering",
+          "conviction": "Medium",
+          "why": "The largest listed builder and the most direct play on roads and rebuilding. It is also liquid enough for larger positions.",
+          "valuation": "~9.7x earnings · ~1.8x book value",
+          "risk": "It is the priciest of the group, and much of its recent growth came from its car and apartment businesses rather than core construction."
+        }
+      ]
+    },
+    {
+      "name": "Tourism",
+      "conviction": "Low-medium",
+      "summary": "The Middle East conflict cut arrivals by about 20% in March and April, and spend per visitor has fallen. Arrivals are still slightly behind last year. April to June is the low season, so weak quarterly results partly reflect the calendar, and the December to March peak decides the year. The upside is that good hotels are cheap, near their book value.",
+      "watch": "A weak December to March peak season, or another travel shock from the Middle East.",
+      "stocks": [
+        {
+          "symbol": "SPEN",
+          "name": "Aitken Spence",
+          "conviction": "Medium-high",
+          "why": "The only liquid tourism name. Shipping and logistics are strong and offset losses in its hotels, so it is cheap for a large group and tourism recovery is a bonus.",
+          "valuation": "~7x earnings · ~0.6x book value",
+          "risk": "Hotel losses grew by over Rs 780mn this quarter, and tourism could stay weak."
+        },
+        {
+          "symbol": "SHOT",
+          "name": "Serendib Hotels",
+          "conviction": "Medium",
+          "why": "It earned Rs 747mn before tax last year and holds about Rs 620mn of net cash before leases. It owns Thaala Bentota, Club Hotel Dolphin Waikkal, Hotel Sigiriya and the Mirissa villas.",
+          "valuation": "~1.0x book value · about 12% pre-tax profit yield on trailing profit",
+          "risk": "The latest quarter turned to a loss as staff costs rose 30% while revenue fell 11%. It trades very thinly (about Rs 0.2mn a day)."
+        },
+        {
+          "symbol": "CHOT",
+          "name": "Ceylon Hotels Corporation",
+          "conviction": "Low-medium",
+          "why": "Last year was strong (revenue up 42%, profit up 56%), debt is low, and the shares trade well below the value of its net assets. It owns Queens Hotel and Hotel Suisse in Kandy through a subsidiary and holds 50% of Radisson Kandy and a group of rest houses.",
+          "valuation": "~0.65x its own net assets per share",
+          "risk": "The latest quarter's loss grew because of losses at its joint-venture hotels. It trades very thinly (about Rs 0.3mn a day)."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Hotel stocks other than SPEN trade under Rs 1mn a day and suit small positions only.",
+    "The market is down about 13% from its peak with foreign investors selling, so prices could drift lower before recovering.",
+    "SHOT, HNB, SAMP, RCL and AEL do not yet have a scored investment thesis on the platform; their company pages show the data that has been entered so far."
+  ]
+}

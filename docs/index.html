@@ -345,6 +345,37 @@
   .shareholder-table td.num { font-family: var(--font-mono); text-align: right; white-space: nowrap; }
   .shareholder-table tr:hover td { background: #FAFAF7; }
 
+  /* ---------- Recommended view ---------- */
+  .reco-sector { margin-top: 22px; }
+  .reco-sector-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .reco-sector-name { font-size: 15px; font-weight: 600; }
+  .reco-badge {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 4px; border: 1px solid var(--panel-line); color: var(--slate);
+  }
+  .reco-badge.high { color: var(--good); border-color: var(--good-line); background: #F0FAF3; }
+  .reco-badge.medium-high { color: var(--good); border-color: var(--good-line); background: #F0FAF3; }
+  .reco-badge.medium { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-tint); }
+  .reco-badge.low-medium { color: #8A6A12; border-color: #E6D39A; background: #FBF6E5; }
+  .reco-sector-summary { font-size: 13px; line-height: 1.65; margin-bottom: 6px; }
+  .reco-watch { font-size: 11.5px; color: var(--slate); margin-bottom: 12px; line-height: 1.5; }
+  .reco-watch b { color: var(--gold); }
+  .reco-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .reco-card { border: 1px solid var(--panel-line); border-radius: 6px; padding: 14px 16px; background: #FCFDFF; }
+  .reco-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+  .reco-symbol {
+    font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--gold);
+    cursor: pointer; text-decoration: underline; text-decoration-color: var(--gold-dim);
+  }
+  .reco-name { font-size: 12px; color: var(--slate); margin-bottom: 8px; }
+  .reco-price { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); margin-bottom: 8px; }
+  .reco-why { font-size: 12.5px; line-height: 1.6; margin-bottom: 8px; }
+  .reco-val { font-family: var(--font-mono); font-size: 11px; color: var(--ink); margin-bottom: 6px; }
+  .reco-risk { font-size: 11.5px; color: var(--slate); line-height: 1.5; }
+  .reco-risk b { color: var(--neg); }
+  .reco-notes { margin-top: 20px; font-size: 11.5px; color: var(--slate); line-height: 1.6; }
+  .reco-notes li { margin-bottom: 4px; }
+
   /* ---------- Price chart card ---------- */
   .price-chart-wrap { padding: 4px 0; }
   .price-chart-empty { color: var(--slate); font-size: 12px; font-style: italic; }
@@ -364,6 +395,7 @@
   <div class="mode-row">
     <div class="mode-btn active" id="modeCompanyBtn" data-mode="company">Company</div>
     <div class="mode-btn" id="modeCompareBtn" data-mode="compare">Compare</div>
+    <div class="mode-btn" id="modeRecoBtn" data-mode="reco">Recommended</div>
   </div>
 
   <div class="search-row" id="searchRow">
@@ -408,6 +440,8 @@
     </div>
     <div id="compareTableHolder"></div>
   </div>
+
+  <div class="compare-panel" id="recoView" style="display:none;"></div>
 
   <div class="footer-note">Registry snapshot — data captured live from CSE feeds during platform testing</div>
 </div>
@@ -1265,12 +1299,92 @@ let compareData = [];
 function setMode(mode) {
   document.getElementById("modeCompanyBtn").classList.toggle("active", mode === "company");
   document.getElementById("modeCompareBtn").classList.toggle("active", mode === "compare");
+  document.getElementById("modeRecoBtn").classList.toggle("active", mode === "reco");
   document.getElementById("searchRow").style.display = mode === "company" ? "" : "none";
   document.getElementById("companyView").style.display = mode === "company" ? "" : "none";
   document.getElementById("compareView").style.display = mode === "compare" ? "" : "none";
+  document.getElementById("recoView").style.display = mode === "reco" ? "" : "none";
   if (mode === "compare" && compareSymbols.length === 0 && activeSymbol) {
     addCompareSymbol(activeSymbol);
   }
+  if (mode === "reco") renderRecommended();
+}
+
+// ---------- Recommended view ----------
+// Reads site_data/recommendations.json (hand-curated research picks by sector)
+// and shows the latest price for each ticker from its own company bundle.
+function recoEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function recoBadge(label) {
+  const cls = String(label || "").toLowerCase().replace(/\s+/g, "-");
+  return `<span class="reco-badge ${recoEsc(cls)}">${recoEsc(label)} conviction</span>`;
+}
+let recoRendered = false;
+async function renderRecommended() {
+  const holder = document.getElementById("recoView");
+  if (recoRendered) return;
+  holder.innerHTML = `<div class="summary-card-header">Recommended</div><div class="empty-state">Loading…</div>`;
+  let reco = null;
+  try {
+    const res = await fetch("site_data/recommendations.json");
+    reco = res.status === 200 ? await res.json() : null;
+  } catch (e) { reco = null; }
+  if (!reco) {
+    holder.innerHTML = `<div class="summary-card-header">Recommended</div><div class="empty-state">Recommendations are not available right now.</div>`;
+    return;
+  }
+  const symbols = [];
+  reco.sectors.forEach(sec => sec.stocks.forEach(st => symbols.push(st.symbol)));
+  const bundles = await Promise.all(symbols.map(s => loadBundle(s).catch(() => null)));
+  const priceOf = {};
+  symbols.forEach((s, i) => {
+    const md = bundles[i] && bundles[i].market_data;
+    priceOf[s] = md && md.price != null ? { price: md.price, asof: md.as_of } : null;
+  });
+
+  const sectorsHtml = reco.sectors.map(sec => {
+    const cards = sec.stocks.map(st => {
+      const p = priceOf[st.symbol];
+      const priceLine = p
+        ? `<div class="reco-price">Rs ${Number(p.price).toLocaleString(undefined, {maximumFractionDigits: 2})} <span style="color:var(--slate)">as of ${recoEsc(p.asof)}</span></div>`
+        : "";
+      return `
+        <div class="reco-card">
+          <div class="reco-card-head">
+            <span class="reco-symbol" data-symbol="${recoEsc(st.symbol)}">${recoEsc(st.symbol)}</span>
+            ${recoBadge(st.conviction)}
+          </div>
+          <div class="reco-name">${recoEsc(st.name)}</div>
+          ${priceLine}
+          <div class="reco-why">${recoEsc(st.why)}</div>
+          <div class="reco-val">${recoEsc(st.valuation)}</div>
+          <div class="reco-risk"><b>Risk:</b> ${recoEsc(st.risk)}</div>
+        </div>`;
+    }).join("");
+    return `
+      <div class="reco-sector">
+        <div class="reco-sector-head">
+          <span class="reco-sector-name">${recoEsc(sec.name)}</span>
+          ${recoBadge(sec.conviction)}
+        </div>
+        <div class="reco-sector-summary">${recoEsc(sec.summary)}</div>
+        <div class="reco-watch"><b>What would change the view:</b> ${recoEsc(sec.watch)}</div>
+        <div class="reco-grid">${cards}</div>
+      </div>`;
+  }).join("");
+
+  const notesHtml = (reco.notes || []).map(n => `<li>${recoEsc(n)}</li>`).join("");
+  holder.innerHTML = `
+    <div class="summary-card-header">${recoEsc(reco.headline)}</div>
+    <div class="summary-card-sub">Research view as of ${recoEsc(reco.as_of)}</div>
+    ${sectorsHtml}
+    <ul class="reco-notes">${notesHtml}</ul>
+    <div class="gaps-note">${recoEsc(reco.disclaimer)}</div>`;
+  holder.querySelectorAll(".reco-symbol").forEach(el => {
+    el.addEventListener("click", () => { setMode("company"); selectSymbol(el.dataset.symbol); });
+  });
+  recoRendered = true;
 }
 
 function renderComparePicker() {
@@ -1469,6 +1583,7 @@ async function renderAll() {
 
   document.getElementById("modeCompanyBtn").addEventListener("click", () => setMode("company"));
   document.getElementById("modeCompareBtn").addEventListener("click", () => setMode("compare"));
+  document.getElementById("modeRecoBtn").addEventListener("click", () => setMode("reco"));
 }
 
 renderAll();
